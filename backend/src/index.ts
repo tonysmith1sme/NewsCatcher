@@ -184,10 +184,11 @@ app.get('/api/logs', async (req: Request, res: Response) => {
   }
 });
 
-const PORT = process.env.PORT || 4001;
+const PORT = Number(process.env.PORT) || 4001;
+const HOST = process.env.HOST || '0.0.0.0';
 
-app.listen(PORT, async () => {
-  console.log(`[NewsCatcher Backend] Server running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, async () => {
+  console.log(`[NewsCatcher Backend] Server running on http://${HOST}:${PORT}`);
   // Initialize scheduler on startup
   await SchedulerService.initScheduler();
 });

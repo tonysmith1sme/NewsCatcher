@@ -13,12 +13,17 @@ export default defineConfig({
     })
   ],
   server: {
+    host: '0.0.0.0',
     port: 4000,
     proxy: {
       '/api': {
-        target: 'http://localhost:4001',
+        target: 'http://127.0.0.1:4001',
         changeOrigin: true
       }
     }
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: 4000
   }
 })
