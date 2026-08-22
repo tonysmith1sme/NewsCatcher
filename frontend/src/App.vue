@@ -18,19 +18,19 @@
     <div class="main-container">
       <!-- M3 Navigation Rail / Sidebar -->
       <nav class="m3-nav-rail">
-        <router-link to="/" class="nav-item" exact-active-class="active">
+        <router-link to="/" class="nav-item" active-class="active">
           <span class="material-symbols-outlined nav-icon">rss_feed</span>
           <span class="nav-label">新闻简报</span>
         </router-link>
-        <router-link to="/sources" class="nav-item" exact-active-class="active">
+        <router-link to="/sources" class="nav-item" active-class="active">
           <span class="material-symbols-outlined nav-icon">manage_search</span>
           <span class="nav-label">抓取源管理</span>
         </router-link>
-        <router-link to="/settings" class="nav-item" exact-active-class="active">
+        <router-link to="/settings" class="nav-item" active-class="active">
           <span class="material-symbols-outlined nav-icon">settings</span>
           <span class="nav-label">系统设置</span>
         </router-link>
-        <router-link to="/logs" class="nav-item" exact-active-class="active">
+        <router-link to="/logs" class="nav-item" active-class="active">
           <span class="material-symbols-outlined nav-icon">article</span>
           <span class="nav-label">抓取日志</span>
         </router-link>
@@ -44,7 +44,9 @@
           <span>{{ taskMessage }}</span>
         </div>
 
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <component :is="Component" :key="$route.fullPath" />
+        </router-view>
       </main>
     </div>
   </div>
