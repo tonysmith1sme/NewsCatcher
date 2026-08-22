@@ -1,0 +1,47 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model News {
+  id              String   @id @default(uuid())
+  tweetId         String   @unique
+  title           String
+  summary         String
+  markdownContent String
+  category        String
+  importance      Int      @default(3)
+  author          String
+  authorUsername  String?
+  originalUrl     String
+  mediaUrlsJson   String?  // Store as JSON string array
+  tweetCreatedAt  DateTime?
+  createdAt       DateTime @default(now())
+}
+
+model Config {
+  key   String @id
+  value String
+}
+
+model Source {
+  id        String   @id @default(uuid())
+  name      String
+  type      String   // "search" | "user" | "hashtag"
+  query     String
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model ExecutionLog {
+  id           String   @id @default(uuid())
+  status       String   // "SUCCESS" | "FAILED" | "IN_PROGRESS"
+  fetchedCount Int      @default(0)
+  savedCount   Int      @default(0)
+  message      String?
+  createdAt    DateTime @default(now())
+}
