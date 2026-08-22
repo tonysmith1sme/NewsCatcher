@@ -25,11 +25,16 @@
         <div class="source-actions">
           <label class="switch-label">
             <span>{{ src.enabled ? '已启用' : '已禁用' }}</span>
-            <md-switch :selected="src.enabled" @change="toggleSource(src.id)"></md-switch>
+            <input
+              type="checkbox"
+              :checked="src.enabled"
+              @change="toggleSource(src.id)"
+              class="native-switch"
+            />
           </label>
-          <md-icon-button @click="deleteSource(src.id)">
-            <span class="material-symbols-outlined delete-icon">delete</span>
-          </md-icon-button>
+          <button class="icon-btn delete-btn" @click="deleteSource(src.id)" title="删除源">
+            <span class="material-symbols-outlined">delete</span>
+          </button>
         </div>
       </div>
     </div>
@@ -229,7 +234,31 @@ onMounted(() => {
   font-size: 13px;
 }
 
-.delete-icon {
+.native-switch {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--md-sys-color-primary);
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--md-sys-color-on-surface-variant);
+  transition: background-color 0.2s ease;
+}
+
+.icon-btn:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.icon-btn.delete-btn {
   color: #c62828;
 }
 

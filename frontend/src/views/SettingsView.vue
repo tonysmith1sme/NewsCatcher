@@ -100,14 +100,16 @@
       </div>
 
       <div class="checkbox-group">
-        <label v-for="cat in allCategories" :key="cat" class="checkbox-label">
-          <md-checkbox
+        <div v-for="cat in allCategories" :key="cat" class="checkbox-label" @click="toggleCategory(cat)">
+          <input
+            type="checkbox"
             :checked="targetCategories.includes(cat)"
             @change="toggleCategory(cat)"
-          ></md-checkbox>
+            class="native-checkbox"
+          />
           <span>{{ cat }}</span>
           <span class="remove-cat-btn" @click.stop.prevent="removeCategory(cat)" title="删除该分类">&times;</span>
-        </label>
+        </div>
       </div>
     </section>
 
@@ -123,10 +125,12 @@
       <div class="scheduler-controls">
         <label class="switch-label">
           <span>启用定时自动抓取</span>
-          <md-switch
-            :selected="form.schedule_enabled === 'true'"
+          <input
+            type="checkbox"
+            :checked="form.schedule_enabled === 'true'"
             @change="form.schedule_enabled = form.schedule_enabled === 'true' ? 'false' : 'true'"
-          ></md-switch>
+            class="native-switch"
+          />
         </label>
 
         <div class="schedule-inputs" v-if="form.schedule_enabled === 'true'">
@@ -369,6 +373,13 @@ onMounted(() => {
   gap: 16px;
 }
 
+.native-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--md-sys-color-primary);
+}
+
 .add-category-bar {
   display: flex;
   align-items: center;
@@ -427,7 +438,10 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-.save-btn {
-  padding: 0 24px;
+.native-switch {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--md-sys-color-primary);
 }
 </style>
