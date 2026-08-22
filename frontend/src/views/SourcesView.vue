@@ -35,7 +35,7 @@
     </div>
 
     <!-- Add Source Dialog -->
-    <md-dialog :open="showAddDialog" @closed="showAddDialog = false">
+    <md-dialog v-if="showAddDialog" :open="showAddDialog" @closed="showAddDialog = false">
       <div slot="headline">添加新的 X 抓取源</div>
       <form slot="content" class="add-form" @submit.prevent="saveSource">
         <md-outlined-text-field

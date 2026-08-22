@@ -44,9 +44,7 @@
           <span>{{ taskMessage }}</span>
         </div>
 
-        <router-view v-slot="{ Component }">
-          <component :is="Component" :key="$route.fullPath" />
-        </router-view>
+        <router-view />
       </main>
     </div>
   </div>

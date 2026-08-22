@@ -72,7 +72,7 @@
     </div>
 
     <!-- M3 Markdown Article Drawer/Dialog -->
-    <md-dialog :open="!!activeNews" @closed="activeNews = null" class="markdown-dialog">
+    <md-dialog v-if="!!activeNews" :open="!!activeNews" @closed="activeNews = null" class="markdown-dialog">
       <div slot="headline" class="dialog-headline">
         <span class="dialog-category">{{ activeNews?.category }}</span>
         <h2 class="dialog-title">{{ activeNews?.title }}</h2>
@@ -123,19 +123,26 @@ let debounceTimer: any = null;
 const fetchNews = async () => {
   loading.value = true;
   try {
-    const [newsRes, configRes] = await Promise.all([
-      axios.get('/api/news', {
-        params: {
-          category: selectedCategory.value,
-          search: searchQuery.value,
-          page: page.value,
-          limit: limit.value,
-        },
-      }),
-      axios.get('/api/config'),
-    ]);
-    newsList.value = newsRes.data.data;
-    total.value = newsRes.data.total;
+    const res = await axios.get('/api/news', {
+      params: {
+        category: selectedCategory.value,
+        search: searchQuery.value,
+        page: page.value,
+        limit: limit.value,
+      },
+    });
+    newsList.value = res.data.data;
+    total.value = res.data.total;
+  } catch (err: any) {
+    console.error('Fetch news error:', err);
+  } finally {
+    loading.value = false;
+  }
+};
+
+const fetchCategories = async () => {
+  try {
+    const configRes = await axios.get('/api/config');
     if (configRes.data.data?.all_categories) {
       try {
         const configured = JSON.parse(configRes.data.data.all_categories);
@@ -147,10 +154,8 @@ const fetchNews = async () => {
         categories.value = ['ALL', ...Array.from(new Set(['AI', '金融', '科技', '政治', '游戏', '娱乐', '汽车', '体育', '其他', ...custom]))];
       } catch (e) {}
     }
-  } catch (err: any) {
-    console.error('Fetch news error:', err);
-  } finally {
-    loading.value = false;
+  } catch (e) {
+    console.error('Fetch categories error:', e);
   }
 };
 
@@ -206,6 +211,7 @@ const formatDate = (dateStr?: string) => {
 const handleRefreshEvent = () => fetchNews();
 
 onMounted(() => {
+  fetchCategories();
   fetchNews();
   window.addEventListener('refresh-news', handleRefreshEvent);
 });
