@@ -18,17 +18,21 @@ export interface TweetItem {
 
 export class TwitterService {
   private static getHeaders(authToken: string, ct0: string) {
-    // Standard X Web client headers with Bearer token used by X Web Application
+    // Standard X Web client Bearer token
     const BEARER_TOKEN = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
     
+    // Format cookies cleanly
+    const cleanAuthToken = authToken.trim();
+    const cleanCt0 = ct0.trim();
+    const cookieHeader = `auth_token=${cleanAuthToken}; ct0=${cleanCt0};`;
+
     return {
       'authorization': BEARER_TOKEN,
-      'x-csrf-token': ct0,
+      'x-csrf-token': cleanCt0,
       'x-twitter-active-user': 'yes',
       'x-twitter-auth-type': 'OAuth2Session',
-      'cookie': `auth_token=${authToken}; ct0=${ct0};`,
+      'cookie': cookieHeader,
       'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      'content-type': 'application/json',
     };
   }
 
@@ -40,9 +44,9 @@ export class TwitterService {
 
       const headers = this.getHeaders(authToken, ct0);
 
-      // Endpoint 1: Verify Account Credentials (REST v1.1 endpoint on x.com)
+      // Endpoint 1: Verify Account Credentials (REST v1.1 endpoint on api.twitter.com)
       try {
-        const res = await axios.get('https://x.com/i/api/1.1/account/verify_credentials.json', {
+        const res = await axios.get('https://api.twitter.com/1.1/account/verify_credentials.json', {
           headers,
           timeout: 10000,
         });
@@ -55,12 +59,13 @@ export class TwitterService {
           };
         }
       } catch (e: any) {
+        // If 401, check error detail
         if (e.response?.status === 401) {
-          return { success: false, message: 'X 认证失败 (HTTP 401): Cookie (auth_token 或 ct0) 已失效或过期，请重新在浏览器提取最新的 Cookie' };
+          console.error('[Twitter Auth 401 Error]:', e.response?.data);
         }
       }
 
-      // Endpoint 2: Account Settings (Fallback)
+      // Endpoint 2: Account Settings on x.com
       try {
         const res2 = await axios.get('https://x.com/i/api/1.1/account/settings.json', {
           headers,
@@ -76,9 +81,24 @@ export class TwitterService {
         }
       } catch (e: any) {
         if (e.response?.status === 401) {
-          return { success: false, message: 'X 认证失败 (HTTP 401): Cookie (auth_token 或 ct0) 已失效或过期，请重新在浏览器提取最新的 Cookie' };
+          console.error('[Twitter Settings 401 Error]:', e.response?.data);
         }
       }
+
+      // Endpoint 3: Client Transaction / User Client Verify
+      try {
+        const res3 = await axios.get('https://x.com/i/api/1.1/account/verify_credentials.json', {
+          headers,
+          timeout: 10000,
+        });
+        if (res3.data && (res3.data.screen_name || res3.data.id_str)) {
+          return {
+            success: true,
+            message: `登录成功，当前账号: @${res3.data.screen_name || 'X 用户'} (${res3.data.name || ''})`,
+            user: res3.data,
+          };
+        }
+      } catch (e: any) {}
 
       return { success: false, message: '未能验证 X 账号，请确认输入的 auth_token 和 ct0 是否填写正确且有效' };
     } catch (err: any) {
