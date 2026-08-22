@@ -10,7 +10,8 @@
 3. [添加与管理 X 抓取源](#3-添加与管理-x-抓取源)
 4. [设置新闻分类与过滤规则](#4-设置新闻分类与过滤规则)
 5. [配置定时自动化抓取](#5-配置定时自动化抓取)
-6. [新闻浏览与 Markdown 阅读器](#6-新闻浏览与-markdown-阅读器)
+6. [配置 Telegram & QQ 机器人通知转发](#6-配置-telegram--qq-机器人通知转发)
+7. [新闻浏览与 Markdown 阅读器](#7-新闻浏览与-markdown-阅读器)
 
 ---
 
@@ -81,7 +82,29 @@ NewsCatcher 能够对接任何兼容 OpenAI API 格式的大语言模型。
 
 ---
 
-## 6. 新闻浏览与 Markdown 阅读器
+---
+
+## 6. 配置 Telegram & QQ 机器人通知转发
+
+在 **“系统设置”** -> **“新新闻自动通知转发设置”** 中支持以下三种通知手段：
+
+### Telegram Bot 通知
+1. 在 Telegram 搜索 `@BotFather` 创建自己的 Bot 并获取 `Bot Token`。
+2. 将 Bot 邀请至个人聊天或频道，获取对应 `Chat ID`。
+3. 开启“启用 Telegram Bot 通知”，填入凭证后可点击 **“发送测试 Telegram 消息”** 验证。
+
+### QQ 机器人通知 (QQ Open API v2)
+严格遵循 [QQ 机器人 v2 开放平台规范](https://bot.q.qq.com/wiki/develop/api-v2/)。
+1. 在 QQ 开放平台注册机器人并获取 `AppID` 和 `ClientSecret`。
+2. 若用于频道，填入 `Channel ID`（子频道 ID）；若用于个人或群聊，填入对应的 `OpenID`。
+3. 开启“启用 QQ 机器人通知”，点击 **“发送测试 QQ 消息”**。
+
+### 自定义 Webhook
+支持 Discord、Server酱、Bark 等服务，开启后填入对应生成的 Webhook 完整 URL 即可。
+
+---
+
+## 7. 新闻浏览与 Markdown 阅读器
 
 在 **“新闻简报”** 页面：
 

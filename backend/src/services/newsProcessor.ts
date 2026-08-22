@@ -1,6 +1,7 @@
 import { prisma, getSystemConfig } from './config';
 import { TwitterService, TweetItem } from './twitter';
 import { AIService } from './ai';
+import { NotificationService } from './notification';
 
 export class NewsProcessorService {
   public static async runFetchTask(): Promise<{ fetched: number; saved: number; logMessage: string }> {
@@ -73,6 +74,15 @@ export class NewsProcessorService {
               },
             });
             totalSaved++;
+
+            // Trigger notification
+            NotificationService.sendNotification({
+              title: aiResult.title,
+              summary: aiResult.summary,
+              category: aiResult.category,
+              author: tweet.authorName,
+              originalUrl: tweet.url,
+            }).catch(e => console.error('[Notification] Error:', e));
           }
         } catch (err: any) {
           console.error(`[NewsProcessor] Source "${src.name}" fetch error:`, err.message);

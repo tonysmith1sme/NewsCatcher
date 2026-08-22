@@ -14,6 +14,7 @@ NewsCatcher 是一款全自动的 Twitter (X) 新闻与资讯抓取提炼系统�
 - 📖 **Material Design 3 前端 UI & Markdown 阅读器**：使用 Vue 3 + Vite 开发，应用官方 Material Design 3 组件规范，内置全屏 Markdown 渲染阅读器。
 - ⏱️ **动态定时任务调度**：支持灵活设定定时抓取周期（每 N 分钟、小时、天、周），包含运行日志查看与手动一键触发。
 - 🗃️ **分类全生命周期管理**：支持自定义任意新分类，且允许删除默认的旧分类。
+- 📩 **新新闻自动通知转发**：当抓取到符合过滤条件的新新闻入库时，自动通过 Telegram Bot、QQ 机器人 (QQ Open API v2) 或自定义 Webhook (Discord / Server酱 / Bark) 进行实时推送。
 - 🗄️ **轻量 SQLite 数据库**：采用 SQLite + Prisma ORM，结构化存储推文原数据与提炼后的 Markdown 新闻文档。
 
 ---

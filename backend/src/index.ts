@@ -69,7 +69,13 @@ app.delete('/api/news/:id', async (req: Request, res: Response) => {
 // --- Config API ---
 app.get('/api/config', async (req: Request, res: Response) => {
   try {
-    const keys = ['x_auth_token', 'x_ct0', 'ai_base_url', 'ai_api_key', 'ai_model', 'target_categories', 'all_categories', 'schedule_enabled', 'schedule_value', 'schedule_unit'];
+    const keys = [
+      'x_auth_token', 'x_ct0', 'ai_base_url', 'ai_api_key', 'ai_model', 'target_categories', 'all_categories',
+      'schedule_enabled', 'schedule_value', 'schedule_unit',
+      'notify_tg_enabled', 'notify_tg_bot_token', 'notify_tg_chat_id',
+      'notify_qq_enabled', 'notify_qq_app_id', 'notify_qq_client_secret', 'notify_qq_channel_id', 'notify_qq_openid',
+      'notify_webhook_enabled', 'notify_webhook_url'
+    ];
     const configMap: Record<string, string> = {};
     for (const k of keys) {
       configMap[k] = await getSystemConfig(k);
@@ -153,10 +159,39 @@ app.post('/api/test/twitter', async (req: Request, res: Response) => {
   }
 });
 
+import { NotificationService } from './services/notification';
+
 app.post('/api/test/ai', async (req: Request, res: Response) => {
   try {
     const result = await AIService.testConnection();
     res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/test/notification', async (req: Request, res: Response) => {
+  try {
+    const { type } = req.body;
+    const testPayload = {
+      title: 'NewsCatcher 测试通知测试消息',
+      summary: '这是一条用于验证机器人通知转发接口的示例新闻摘要。',
+      category: '测试',
+      author: 'NewsCatcher Bot',
+      originalUrl: 'https://x.com',
+    };
+
+    if (type === 'tg') {
+      await NotificationService.sendTelegram(testPayload);
+    } else if (type === 'qq') {
+      await NotificationService.sendQQBot(testPayload);
+    } else if (type === 'webhook') {
+      await NotificationService.sendCustomWebhook(testPayload);
+    } else {
+      await NotificationService.sendNotification(testPayload);
+    }
+
+    res.json({ success: true, message: '测试通知发送指令已发出，请查看对应平台接收结果' });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }

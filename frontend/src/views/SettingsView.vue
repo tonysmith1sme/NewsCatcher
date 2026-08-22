@@ -155,6 +155,112 @@
       </div>
     </section>
 
+    <!-- Notifications Forwarding Settings -->
+    <section class="settings-section m3-card">
+      <div class="section-header">
+        <span class="material-symbols-outlined section-icon">notifications_active</span>
+        <div>
+          <h3>新新闻自动通知转发设置</h3>
+          <p class="section-desc">当有符合条件的新新闻收录入库时，自动推送到 Telegram、QQ 机器人 (API v2) 或自定义 Webhook</p>
+        </div>
+      </div>
+
+      <!-- Telegram Bot Config -->
+      <div class="notify-sub-block">
+        <div class="sub-block-header">
+          <label class="switch-label">
+            <span>启用 Telegram Bot 通知</span>
+            <input
+              type="checkbox"
+              :checked="form.notify_tg_enabled === 'true'"
+              @change="form.notify_tg_enabled = form.notify_tg_enabled === 'true' ? 'false' : 'true'"
+              class="native-switch"
+            />
+          </label>
+          <md-outlined-button v-if="form.notify_tg_enabled === 'true'" @click="testNotify('tg')">发送测试 Telegram 消息</md-outlined-button>
+        </div>
+        <div class="form-grid" v-if="form.notify_tg_enabled === 'true'">
+          <md-outlined-text-field
+            label="Telegram Bot Token (如: 123456789:ABCdef...)"
+            :value="form.notify_tg_bot_token"
+            @input="form.notify_tg_bot_token = ($event.target as HTMLInputElement).value"
+          />
+          <md-outlined-text-field
+            label="Chat ID (个人 / 群组 ID)"
+            :value="form.notify_tg_chat_id"
+            @input="form.notify_tg_chat_id = ($event.target as HTMLInputElement).value"
+          />
+        </div>
+      </div>
+
+      <hr class="section-divider" />
+
+      <!-- QQ Bot Config -->
+      <div class="notify-sub-block">
+        <div class="sub-block-header">
+          <label class="switch-label">
+            <span>启用 QQ 机器人通知 (QQ Open API v2)</span>
+            <input
+              type="checkbox"
+              :checked="form.notify_qq_enabled === 'true'"
+              @change="form.notify_qq_enabled = form.notify_qq_enabled === 'true' ? 'false' : 'true'"
+              class="native-switch"
+            />
+          </label>
+          <md-outlined-button v-if="form.notify_qq_enabled === 'true'" @click="testNotify('qq')">发送测试 QQ 消息</md-outlined-button>
+        </div>
+        <div class="form-grid" v-if="form.notify_qq_enabled === 'true'">
+          <md-outlined-text-field
+            label="QQ AppID"
+            :value="form.notify_qq_app_id"
+            @input="form.notify_qq_app_id = ($event.target as HTMLInputElement).value"
+          />
+          <md-outlined-text-field
+            label="ClientSecret (AppSecret)"
+            :value="form.notify_qq_client_secret"
+            @input="form.notify_qq_client_secret = ($event.target as HTMLInputElement).value"
+            type="password"
+          />
+          <md-outlined-text-field
+            label="子频道 ID (Channel ID - 频道推送)"
+            :value="form.notify_qq_channel_id"
+            @input="form.notify_qq_channel_id = ($event.target as HTMLInputElement).value"
+            supporting-text="若填入 Channel ID 则优先推送到QQ频道"
+          />
+          <md-outlined-text-field
+            label="用户/群组 OpenID (C2C 单聊或群聊 - 选填)"
+            :value="form.notify_qq_openid"
+            @input="form.notify_qq_openid = ($event.target as HTMLInputElement).value"
+          />
+        </div>
+      </div>
+
+      <hr class="section-divider" />
+
+      <!-- Custom Webhook Config -->
+      <div class="notify-sub-block">
+        <div class="sub-block-header">
+          <label class="switch-label">
+            <span>启用自定义 Webhook (Discord / Server酱 / Bark / 企业微信)</span>
+            <input
+              type="checkbox"
+              :checked="form.notify_webhook_enabled === 'true'"
+              @change="form.notify_webhook_enabled = form.notify_webhook_enabled === 'true' ? 'false' : 'true'"
+              class="native-switch"
+            />
+          </label>
+          <md-outlined-button v-if="form.notify_webhook_enabled === 'true'" @click="testNotify('webhook')">发送测试 Webhook</md-outlined-button>
+        </div>
+        <div class="form-grid" v-if="form.notify_webhook_enabled === 'true'">
+          <md-outlined-text-field
+            label="Webhook URL"
+            :value="form.notify_webhook_url"
+            @input="form.notify_webhook_url = ($event.target as HTMLInputElement).value"
+          />
+        </div>
+      </div>
+    </section>
+
     <!-- Save Config Action -->
     <div class="save-bar">
       <md-filled-button class="save-btn" @click="saveAllConfigs">
@@ -183,6 +289,16 @@ const form = ref({
   schedule_enabled: 'false',
   schedule_value: '1',
   schedule_unit: 'hours',
+  notify_tg_enabled: 'false',
+  notify_tg_bot_token: '',
+  notify_tg_chat_id: '',
+  notify_qq_enabled: 'false',
+  notify_qq_app_id: '',
+  notify_qq_client_secret: '',
+  notify_qq_channel_id: '',
+  notify_qq_openid: '',
+  notify_webhook_enabled: 'false',
+  notify_webhook_url: '',
 });
 
 const testingX = ref(false);
@@ -287,6 +403,16 @@ const testAIConnection = async () => {
     aiTestResult.value = '测试连接失败';
   } finally {
     testingAI.value = false;
+  }
+};
+
+const testNotify = async (type: string) => {
+  await saveAllConfigs(false);
+  try {
+    const res = await axios.post('/api/test/notification', { type });
+    alert(res.data.message || '测试指令发送成功');
+  } catch (err: any) {
+    alert(`测试通知发送失败: ${err.response?.data?.message || err.message}`);
   }
 };
 
@@ -443,5 +569,23 @@ onMounted(() => {
   height: 20px;
   cursor: pointer;
   accent-color: var(--md-sys-color-primary);
+}
+
+.notify-sub-block {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sub-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-divider {
+  border: 0;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  margin: 12px 0;
 }
 </style>
