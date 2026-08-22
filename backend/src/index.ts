@@ -1,5 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
 import { prisma, getSystemConfig, setSystemConfig } from './services/config';
 import { TwitterService } from './services/twitter';
 import { AIService } from './services/ai';
@@ -8,6 +10,22 @@ import { SchedulerService } from './services/scheduler';
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Serve local media uploads
+const defaultMediaDir = path.join(process.cwd(), 'media');
+if (!fs.existsSync(defaultMediaDir)) {
+  fs.mkdirSync(defaultMediaDir, { recursive: true });
+}
+app.use('/media', express.static(defaultMediaDir));
+
+// Also dynamically serve custom storage directory if set
+app.use('/media_custom', async (req, res, next) => {
+  const customDir = await getSystemConfig('storage_media_dir', '');
+  if (customDir && fs.existsSync(customDir)) {
+    return express.static(customDir)(req, res, next);
+  }
+  return express.static(defaultMediaDir)(req, res, next);
+});
 
 // --- News API ---
 app.get('/api/news', async (req: Request, res: Response) => {
@@ -74,7 +92,8 @@ app.get('/api/config', async (req: Request, res: Response) => {
       'schedule_enabled', 'schedule_value', 'schedule_unit',
       'notify_tg_enabled', 'notify_tg_bot_token', 'notify_tg_chat_id',
       'notify_qq_enabled', 'notify_qq_app_id', 'notify_qq_client_secret', 'notify_qq_channel_id', 'notify_qq_openid',
-      'notify_webhook_enabled', 'notify_webhook_url'
+      'notify_webhook_enabled', 'notify_webhook_url',
+      'save_original_text', 'save_original_images', 'storage_media_dir'
     ];
     const configMap: Record<string, string> = {};
     for (const k of keys) {

@@ -261,6 +261,47 @@
       </div>
     </section>
 
+    <!-- Storage & Original Content Settings -->
+    <section class="settings-section m3-card">
+      <div class="section-header">
+        <span class="material-symbols-outlined section-icon">folder_special</span>
+        <div>
+          <h3>新闻原文保留与图片本地存储设置</h3>
+          <p class="section-desc">配置是否在生成的 Markdown 文档中附带推文原文与下载原推配图到本地存储</p>
+        </div>
+      </div>
+      <div class="scheduler-controls">
+        <label class="switch-label">
+          <span>保留推文正文原文到 Markdown 报告末尾</span>
+          <input
+            type="checkbox"
+            :checked="form.save_original_text === 'true'"
+            @change="form.save_original_text = form.save_original_text === 'true' ? 'false' : 'true'"
+            class="native-switch"
+          />
+        </label>
+
+        <label class="switch-label">
+          <span>自动下载推文媒体图片并保存到本地存储目录</span>
+          <input
+            type="checkbox"
+            :checked="form.save_original_images === 'true'"
+            @change="form.save_original_images = form.save_original_images === 'true' ? 'false' : 'true'"
+            class="native-switch"
+          />
+        </label>
+
+        <div class="form-grid" style="margin-top: 8px;">
+          <md-outlined-text-field
+            label="自定义图片本地存储目录路径 (绝对路径，为空则使用项目运行目录下的 /media)"
+            :value="form.storage_media_dir"
+            @input="form.storage_media_dir = ($event.target as HTMLInputElement).value"
+            supporting-text="例如: /data/newscatcher/images 或 D:\media"
+          />
+        </div>
+      </div>
+    </section>
+
     <!-- Save Config Action -->
     <div class="save-bar">
       <md-filled-button class="save-btn" @click="saveAllConfigs">
@@ -299,6 +340,9 @@ const form = ref({
   notify_qq_openid: '',
   notify_webhook_enabled: 'false',
   notify_webhook_url: '',
+  save_original_text: 'true',
+  save_original_images: 'true',
+  storage_media_dir: '',
 });
 
 const testingX = ref(false);
