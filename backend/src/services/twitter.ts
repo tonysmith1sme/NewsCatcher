@@ -37,8 +37,30 @@ export class TwitterService {
       if (!authToken || !ct0) {
         return { success: false, message: 'Cookie auth_token 或 ct0 不能为空' };
       }
-      const response = await axios.get('https://x.com/i/api/1.1/account/verify_credentials.json', {
-        headers: this.getHeaders(authToken, ct0),
+
+      // Try GraphQL Viewer / Account User endpoint or verify_credentials fallback
+      const headers = this.getHeaders(authToken, ct0);
+
+      try {
+        const gqlRes = await axios.get('https://x.com/i/api/graphql/s6w1ZflWwGoLnviaQqAHtw/Viewer', {
+          headers,
+          timeout: 10000,
+        });
+
+        const user = gqlRes.data?.data?.viewer?.user_results?.result?.legacy;
+        if (user && user.screen_name) {
+          return {
+            success: true,
+            message: `登录成功，当前账号: @${user.screen_name} (${user.name})`,
+            user,
+          };
+        }
+      } catch (e) {
+        // Fallback to REST v1.1
+      }
+
+      const response = await axios.get('https://api.twitter.com/1.1/account/verify_credentials.json', {
+        headers,
         timeout: 10000,
       });
 
@@ -64,55 +86,133 @@ export class TwitterService {
       throw new Error('未配置 X (Twitter) Cookie 凭证');
     }
 
-    const client = axios.create({
-      baseURL: 'https://x.com/i/api/2/search/adaptive.json',
-      headers: this.getHeaders(authToken, ct0),
-      timeout: 15000,
-    });
+    const headers = this.getHeaders(authToken, ct0);
 
     try {
-      const response = await client.get('', {
-        params: {
-          q: query,
-          count: count,
-          query_source: 'typed_query',
-          tweet_search_mode: 'live',
-        },
-      });
+      // 1. Try modern GraphQL Search Timeline endpoint
+      const gqlFeatures = {
+        rweb_tipjar_consumption_enabled: true,
+        responsive_web_graphql_exclude_directive_enabled: true,
+        verified_phone_label_enabled: false,
+        creator_subscriptions_tweet_preview_api_enabled: true,
+        responsive_web_graphql_timeline_navigation_enabled: true,
+        responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+        communities_web_enable_tweet_community_results_fetch: true,
+        c9s_tweet_anatomy_moderator_badge_enabled: true,
+        articles_preview_enabled: true,
+        responsive_web_edit_tweet_api_enabled: true,
+        graphql_is_translatable_rweb_tweet_is_translatable_enabled: true,
+        view_counts_everywhere_api_enabled: true,
+        longform_notetweets_consumption_enabled: true,
+        responsive_web_twitter_article_tweet_consumption_enabled: true,
+        tweet_awards_web_tipping_enabled: false,
+        creator_subscriptions_quote_tweet_preview_enabled: false,
+        freedom_of_speech_promoted_has_timeline_warning_enabled: true,
+        tweetwithvisibilityresults_prefer_grok_responses_enabled: false,
+        rweb_video_timestamps_enabled: true,
+        longform_notetweets_rich_text_read_enabled: true,
+        longform_notetweets_inline_media_enabled: true,
+        responsive_web_enhance_cards_enabled: false
+      };
 
-      const tweetsObj = response.data?.globalObjects?.tweets || {};
-      const usersObj = response.data?.globalObjects?.users || {};
+      const gqlVariables = {
+        rawQuery: query,
+        count: count,
+        querySource: "typed_query",
+        product: "Latest"
+      };
 
-      const tweets: TweetItem[] = [];
+      try {
+        const gqlRes = await axios.get('https://x.com/i/api/graphql/nK1KiAckcVUSyuymflHyBw/SearchTimeline', {
+          headers,
+          params: {
+            variables: JSON.stringify(gqlVariables),
+            features: JSON.stringify(gqlFeatures)
+          },
+          timeout: 15000,
+        });
 
-      for (const tweetId of Object.keys(tweetsObj)) {
-        const tweetData = tweetsObj[tweetId];
-        const userId = tweetData.user_id_str;
-        const user = usersObj[userId] || {};
+        const instructions = gqlRes.data?.data?.search_by_raw_query?.search_timeline?.timeline?.instructions || [];
+        const tweets: TweetItem[] = [];
 
-        const mediaList: TweetMedia[] = [];
-        const entitiesMedia = tweetData.extended_entities?.media || tweetData.entities?.media || [];
-        for (const m of entitiesMedia) {
-          if (m.media_url_https) {
-            mediaList.push({
-              type: m.type || 'photo',
-              url: m.media_url_https,
+        for (const inst of instructions) {
+          const entries = inst.entries || [];
+          for (const entry of entries) {
+            const result = entry.content?.itemContent?.tweet_results?.result;
+            if (!result) continue;
+
+            const tweetLegacy = result.legacy || result.tweet?.legacy;
+            const userLegacy = result.core?.user_results?.result?.legacy || result.tweet?.core?.user_results?.result?.legacy;
+
+            if (!tweetLegacy) continue;
+
+            const mediaList: TweetMedia[] = [];
+            const mediaEntities = tweetLegacy.extended_entities?.media || tweetLegacy.entities?.media || [];
+            for (const m of mediaEntities) {
+              if (m.media_url_https) {
+                mediaList.push({
+                  type: m.type || 'photo',
+                  url: m.media_url_https
+                });
+              }
+            }
+
+            const username = userLegacy?.screen_name || 'unknown';
+            tweets.push({
+              id: tweetLegacy.id_str || result.rest_id,
+              text: tweetLegacy.full_text || tweetLegacy.text || '',
+              authorName: userLegacy?.name || username,
+              authorUsername: username,
+              createdAt: new Date(tweetLegacy.created_at || Date.now()),
+              url: `https://x.com/${username}/status/${tweetLegacy.id_str || result.rest_id}`,
+              media: mediaList
             });
           }
         }
 
-        const username = user.screen_name || 'unknown';
-        const tweetItem: TweetItem = {
-          id: tweetData.id_str,
-          text: tweetData.full_text || tweetData.text || '',
-          authorName: user.name || username,
-          authorUsername: username,
-          createdAt: new Date(tweetData.created_at || Date.now()),
-          url: `https://x.com/${username}/status/${tweetData.id_str}`,
-          media: mediaList,
-        };
+        if (tweets.length > 0) {
+          return tweets;
+        }
+      } catch (gqlErr) {
+        // Fallback to adaptive REST
+      }
 
-        tweets.push(tweetItem);
+      // 2. Fallback Adaptive Search REST API
+      const response = await axios.get('https://api.twitter.com/1.1/search/tweets.json', {
+        headers,
+        params: {
+          q: query,
+          count: count,
+          tweet_mode: 'extended',
+        },
+        timeout: 15000,
+      });
+
+      const statuses = response.data?.statuses || [];
+      const tweets: TweetItem[] = [];
+
+      for (const status of statuses) {
+        const mediaList: TweetMedia[] = [];
+        const mediaEntities = status.extended_entities?.media || status.entities?.media || [];
+        for (const m of mediaEntities) {
+          if (m.media_url_https) {
+            mediaList.push({
+              type: m.type || 'photo',
+              url: m.media_url_https
+            });
+          }
+        }
+
+        const username = status.user?.screen_name || 'unknown';
+        tweets.push({
+          id: status.id_str,
+          text: status.full_text || status.text || '',
+          authorName: status.user?.name || username,
+          authorUsername: username,
+          createdAt: new Date(status.created_at || Date.now()),
+          url: `https://x.com/${username}/status/${status.id_str}`,
+          media: mediaList
+        });
       }
 
       return tweets;
