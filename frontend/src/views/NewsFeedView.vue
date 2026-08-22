@@ -14,15 +14,17 @@
       </div>
 
       <div class="category-chips">
-        <md-chip-set>
-          <md-filter-chip
+        <div class="category-chip-list">
+          <button
             v-for="cat in categories"
             :key="cat"
-            :label="cat"
-            :selected="selectedCategory === cat"
+            class="m3-category-chip"
+            :class="{ active: selectedCategory === cat }"
             @click="selectCategory(cat)"
-          />
-        </md-chip-set>
+          >
+            {{ cat }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -163,6 +165,7 @@ const onSearchInput = (e: Event) => {
 };
 
 const selectCategory = (cat: string) => {
+  if (selectedCategory.value === cat) return;
   selectedCategory.value = cat;
   page.value = 1;
   fetchNews();
@@ -234,6 +237,38 @@ onUnmounted(() => {
   display: flex;
   gap: 8px;
   overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.category-chip-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.m3-category-chip {
+  background-color: var(--md-sys-color-surface-variant);
+  color: var(--md-sys-color-on-surface-variant);
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: 8px;
+  padding: 6px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.m3-category-chip:hover {
+  background-color: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+
+.m3-category-chip.active {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  border-color: var(--md-sys-color-primary);
+  font-weight: 700;
 }
 
 .loading-state, .empty-state {
