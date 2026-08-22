@@ -38,41 +38,53 @@ export class TwitterService {
         return { success: false, message: 'Cookie auth_token 或 ct0 不能为空' };
       }
 
-      // Try GraphQL Viewer / Account User endpoint or verify_credentials fallback
       const headers = this.getHeaders(authToken, ct0);
 
+      // Endpoint 1: Verify Account Credentials (REST v1.1 endpoint on x.com)
       try {
-        const gqlRes = await axios.get('https://x.com/i/api/graphql/s6w1ZflWwGoLnviaQqAHtw/Viewer', {
+        const res = await axios.get('https://x.com/i/api/1.1/account/verify_credentials.json', {
           headers,
           timeout: 10000,
         });
 
-        const user = gqlRes.data?.data?.viewer?.user_results?.result?.legacy;
-        if (user && user.screen_name) {
+        if (res.data && (res.data.screen_name || res.data.id_str)) {
           return {
             success: true,
-            message: `登录成功，当前账号: @${user.screen_name} (${user.name})`,
-            user,
+            message: `登录成功，当前账号: @${res.data.screen_name || 'X 用户'} (${res.data.name || ''})`,
+            user: res.data,
           };
         }
-      } catch (e) {
-        // Fallback to REST v1.1
+      } catch (e: any) {
+        if (e.response?.status === 401) {
+          return { success: false, message: 'X 认证失败 (HTTP 401): Cookie (auth_token 或 ct0) 已失效或过期，请重新在浏览器提取最新的 Cookie' };
+        }
       }
 
-      const response = await axios.get('https://api.twitter.com/1.1/account/verify_credentials.json', {
-        headers,
-        timeout: 10000,
-      });
+      // Endpoint 2: Account Settings (Fallback)
+      try {
+        const res2 = await axios.get('https://x.com/i/api/1.1/account/settings.json', {
+          headers,
+          timeout: 10000,
+        });
 
-      if (response.data && response.data.screen_name) {
-        return {
-          success: true,
-          message: `登录成功，当前账号: @${response.data.screen_name} (${response.data.name})`,
-          user: response.data,
-        };
+        if (res2.data && res2.data.screen_name) {
+          return {
+            success: true,
+            message: `登录成功，当前账号: @${res2.data.screen_name}`,
+            user: res2.data,
+          };
+        }
+      } catch (e: any) {
+        if (e.response?.status === 401) {
+          return { success: false, message: 'X 认证失败 (HTTP 401): Cookie (auth_token 或 ct0) 已失效或过期，请重新在浏览器提取最新的 Cookie' };
+        }
       }
-      return { success: false, message: '未能验证 X 账号，请检查 Cookie 有效性' };
+
+      return { success: false, message: '未能验证 X 账号，请确认输入的 auth_token 和 ct0 是否填写正确且有效' };
     } catch (err: any) {
+      if (err.response?.status === 404) {
+        return { success: false, message: 'X API 请求失败 (404)，请检查网络代理或连接环境' };
+      }
       const errMsg = err.response?.data?.errors?.[0]?.message || err.message || '网络连接或 Cookie 错误';
       return { success: false, message: `X 认证失败: ${errMsg}` };
     }
@@ -177,23 +189,30 @@ export class TwitterService {
         // Fallback to adaptive REST
       }
 
-      // 2. Fallback Adaptive Search REST API
-      const response = await axios.get('https://api.twitter.com/1.1/search/tweets.json', {
+      // 2. Fallback Adaptive Search REST API on x.com domain
+      const response = await axios.get('https://x.com/i/api/2/search/adaptive.json', {
         headers,
         params: {
           q: query,
           count: count,
-          tweet_mode: 'extended',
+          query_source: 'typed_query',
+          tweet_search_mode: 'live',
         },
         timeout: 15000,
       });
 
-      const statuses = response.data?.statuses || [];
+      const tweetsObj = response.data?.globalObjects?.tweets || {};
+      const usersObj = response.data?.globalObjects?.users || {};
+
       const tweets: TweetItem[] = [];
 
-      for (const status of statuses) {
+      for (const tweetId of Object.keys(tweetsObj)) {
+        const tweetData = tweetsObj[tweetId];
+        const userId = tweetData.user_id_str;
+        const user = usersObj[userId] || {};
+
         const mediaList: TweetMedia[] = [];
-        const mediaEntities = status.extended_entities?.media || status.entities?.media || [];
+        const mediaEntities = tweetData.extended_entities?.media || tweetData.entities?.media || [];
         for (const m of mediaEntities) {
           if (m.media_url_https) {
             mediaList.push({
@@ -203,14 +222,14 @@ export class TwitterService {
           }
         }
 
-        const username = status.user?.screen_name || 'unknown';
+        const username = user.screen_name || 'unknown';
         tweets.push({
-          id: status.id_str,
-          text: status.full_text || status.text || '',
-          authorName: status.user?.name || username,
+          id: tweetData.id_str,
+          text: tweetData.full_text || tweetData.text || '',
+          authorName: user.name || username,
           authorUsername: username,
-          createdAt: new Date(status.created_at || Date.now()),
-          url: `https://x.com/${username}/status/${status.id_str}`,
+          createdAt: new Date(tweetData.created_at || Date.now()),
+          url: `https://x.com/${username}/status/${tweetData.id_str}`,
           media: mediaList
         });
       }
