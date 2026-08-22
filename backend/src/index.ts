@@ -65,7 +65,10 @@ app.get('/api/news', async (req: Request, res: Response) => {
 
 app.get('/api/news/:id', async (req: Request, res: Response) => {
   try {
-    const news = await prisma.news.findUnique({ where: { id: req.params.id } });
+    const news = await prisma.news.findUnique({
+      where: { id: req.params.id },
+      include: { raw: true },
+    });
     if (!news) {
       return res.status(404).json({ success: false, message: '未找到对应的新闻文章' });
     }

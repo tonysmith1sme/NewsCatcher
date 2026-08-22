@@ -1,3 +1,16 @@
+export interface TweetRawItem {
+  id: string;
+  newsId: string;
+  tweetId: string;
+  rawText: string;
+  authorName: string;
+  authorUsername: string;
+  originalUrl: string;
+  mediaUrlsJson?: string;
+  tweetCreatedAt?: string;
+  createdAt: string;
+}
+
 export interface NewsItem {
   id: string;
   tweetId: string;
@@ -12,6 +25,7 @@ export interface NewsItem {
   mediaUrlsJson?: string;
   tweetCreatedAt?: string;
   createdAt: string;
+  raw?: TweetRawItem | null;
 }
 
 export interface SourceItem {

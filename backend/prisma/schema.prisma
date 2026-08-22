@@ -21,6 +21,21 @@ model News {
   mediaUrlsJson   String?  // Store as JSON string array
   tweetCreatedAt  DateTime?
   createdAt       DateTime @default(now())
+  raw             TweetRaw?
+}
+
+model TweetRaw {
+  id            String   @id @default(uuid())
+  newsId        String   @unique
+  news          News     @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  tweetId       String   @unique
+  rawText       String
+  authorName    String
+  authorUsername String
+  originalUrl   String
+  mediaUrlsJson String?  // Store downloaded/original media URLs as JSON string array
+  tweetCreatedAt DateTime?
+  createdAt     DateTime @default(now())
 }
 
 model Config {

@@ -62,39 +62,30 @@ export class NewsProcessorService {
               continue; // Excluded by AI or category filter
             }
 
-            let finalMarkdown = aiResult.markdownContent;
             const downloadedMediaUrls: string[] = [];
 
             // Download original images locally if enabled
             if (saveOriginalImages && tweet.media.length > 0) {
               let imgIndex = 1;
-              let imgMarkdownSection = '\n\n## 📷 原推媒体图片\n';
               for (const m of tweet.media) {
                 const ext = m.url.split('.').pop()?.split('?')[0] || 'jpg';
                 const filename = `${tweet.id}_${imgIndex}.${ext}`;
                 const localUrl = await StorageService.downloadImage(m.url, filename);
                 const displayUrl = localUrl || m.url;
                 downloadedMediaUrls.push(displayUrl);
-                imgMarkdownSection += `![原推配图 ${imgIndex}](${displayUrl})\n`;
                 imgIndex++;
               }
-              finalMarkdown += imgMarkdownSection;
             } else {
               tweet.media.forEach(m => downloadedMediaUrls.push(m.url));
             }
 
-            // Append original tweet text if enabled
-            if (saveOriginalText && tweet.text) {
-              finalMarkdown += `\n\n## 📝 推文正文原文\n> ${tweet.text.replace(/\n/g, '\n> ')}\n`;
-            }
-
-            // Save to SQLite
-            await prisma.news.create({
+            // Save News to SQLite
+            const createdNews = await prisma.news.create({
               data: {
                 tweetId: tweet.id,
                 title: aiResult.title,
                 summary: aiResult.summary,
-                markdownContent: finalMarkdown,
+                markdownContent: aiResult.markdownContent,
                 category: aiResult.category,
                 importance: aiResult.importance,
                 author: tweet.authorName,
@@ -104,6 +95,23 @@ export class NewsProcessorService {
                 tweetCreatedAt: tweet.createdAt,
               },
             });
+
+            // Save TweetRaw to separate SQLite table if enabled
+            if (saveOriginalText) {
+              await prisma.tweetRaw.create({
+                data: {
+                  newsId: createdNews.id,
+                  tweetId: tweet.id,
+                  rawText: tweet.text,
+                  authorName: tweet.authorName,
+                  authorUsername: tweet.authorUsername,
+                  originalUrl: tweet.url,
+                  mediaUrlsJson: JSON.stringify(downloadedMediaUrls),
+                  tweetCreatedAt: tweet.createdAt,
+                },
+              });
+            }
+
             totalSaved++;
 
             // Trigger notification

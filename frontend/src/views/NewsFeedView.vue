@@ -74,7 +74,28 @@
     <!-- M3 Markdown Article Drawer/Dialog -->
     <md-dialog v-if="!!activeNews" :open="!!activeNews" @closed="activeNews = null" class="markdown-dialog">
       <div slot="headline" class="dialog-headline">
-        <span class="dialog-category">{{ activeNews?.category }}</span>
+        <div class="headline-top">
+          <span class="dialog-category">{{ activeNews?.category }}</span>
+          <!-- Tab Bar: Report vs Original Tweet -->
+          <div class="dialog-tabs">
+            <button
+              class="tab-btn"
+              :class="{ active: dialogTab === 'report' }"
+              @click="dialogTab = 'report'"
+            >
+              <span class="material-symbols-outlined tab-icon">description</span>
+              新闻报告
+            </button>
+            <button
+              class="tab-btn"
+              :class="{ active: dialogTab === 'raw' }"
+              @click="dialogTab = 'raw'"
+            >
+              <span class="material-symbols-outlined tab-icon">article</span>
+              推文原文
+            </button>
+          </div>
+        </div>
         <h2 class="dialog-title">{{ activeNews?.title }}</h2>
       </div>
 
@@ -87,7 +108,34 @@
           </a>
         </div>
         <hr class="divider" />
-        <div class="markdown-body" v-html="renderedMarkdown"></div>
+
+        <!-- Tab 1: AI Report -->
+        <div v-if="dialogTab === 'report'" class="markdown-body" v-html="renderedMarkdown"></div>
+
+        <!-- Tab 2: Raw Tweet Content -->
+        <div v-else-if="dialogTab === 'raw'" class="raw-content-view">
+          <div class="raw-author-card">
+            <span class="material-symbols-outlined author-avatar">account_circle</span>
+            <div>
+              <div class="raw-author-name">{{ activeNews?.raw?.authorName || activeNews?.author }}</div>
+              <div class="raw-author-handle">@{{ activeNews?.raw?.authorUsername || activeNews?.authorUsername }}</div>
+            </div>
+          </div>
+
+          <div class="raw-text-box">
+            {{ activeNews?.raw?.rawText || '暂未收录该推文原文数据' }}
+          </div>
+
+          <!-- Media Images Gallery -->
+          <div v-if="rawMediaUrls.length > 0" class="raw-media-gallery">
+            <h3>📷 推文原图列表 ({{ rawMediaUrls.length }})</h3>
+            <div class="media-grid">
+              <a v-for="(imgUrl, idx) in rawMediaUrls" :key="idx" :href="imgUrl" target="_blank" class="media-item">
+                <img :src="imgUrl" :alt="`推文图片 ${idx + 1}`" loading="lazy" />
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div slot="actions">
@@ -117,6 +165,7 @@ const page = ref(1);
 const limit = ref(9);
 const loading = ref(false);
 const activeNews = ref<NewsItem | null>(null);
+const dialogTab = ref<'report' | 'raw'>('report');
 
 let debounceTimer: any = null;
 
@@ -181,13 +230,33 @@ const changePage = (newPage: number) => {
   fetchNews();
 };
 
-const openReader = (item: NewsItem) => {
+const openReader = async (item: NewsItem) => {
+  dialogTab.value = 'report';
   activeNews.value = item;
+  try {
+    const res = await axios.get(`/api/news/${item.id}`);
+    if (res.data.data) {
+      activeNews.value = res.data.data;
+    }
+  } catch (e) {
+    console.error('Fetch news detail error:', e);
+  }
 };
 
 const renderedMarkdown = computed(() => {
   if (!activeNews.value) return '';
   return marked.parse(activeNews.value.markdownContent);
+});
+
+const rawMediaUrls = computed<string[]>(() => {
+  if (!activeNews.value) return [];
+  const jsonStr = activeNews.value.raw?.mediaUrlsJson || activeNews.value.mediaUrlsJson;
+  if (!jsonStr) return [];
+  try {
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    return [];
+  }
 });
 
 const deleteNews = async (id?: string) => {
@@ -387,6 +456,117 @@ onUnmounted(() => {
   --md-dialog-container-color: var(--md-sys-color-surface);
   width: 90vw;
   max-width: 800px;
+}
+
+.dialog-headline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.headline-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dialog-tabs {
+  display: flex;
+  gap: 8px;
+  background-color: var(--md-sys-color-surface-variant);
+  padding: 4px;
+  border-radius: 20px;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--md-sys-color-on-surface-variant);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-btn.active {
+  background-color: var(--md-sys-color-surface);
+  color: var(--md-sys-color-primary);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.tab-icon {
+  font-size: 16px;
+}
+
+.raw-content-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.raw-author-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background-color: var(--md-sys-color-surface-variant);
+  border-radius: var(--md-sys-shape-corner-medium);
+}
+
+.author-avatar {
+  font-size: 36px;
+  color: var(--md-sys-color-primary);
+}
+
+.raw-author-name {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.raw-author-handle {
+  font-size: 13px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.raw-text-box {
+  background-color: #fcfcfc;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  padding: 16px;
+  border-radius: var(--md-sys-shape-corner-medium);
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.raw-media-gallery h3 {
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.media-item img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  transition: transform 0.2s ease;
+}
+
+.media-item img:hover {
+  transform: scale(1.03);
 }
 
 .dialog-headline {
