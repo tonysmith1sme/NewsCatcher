@@ -79,10 +79,26 @@
       <div class="section-header">
         <span class="material-symbols-outlined section-icon">filter_alt</span>
         <div>
-          <h3>目标新闻分类保留设置</h3>
-          <p class="section-desc">AI 模型分析后，仅将勾选选中的分类新闻自动保存入 SQLite 数据库</p>
+          <h3>目标新闻分类保留设置与自定义分类</h3>
+          <p class="section-desc">AI 模型分析后，仅将勾选选中的分类新闻自动保存入 SQLite 数据库；您可以增加自定义分类</p>
         </div>
       </div>
+
+      <!-- Add Custom Category Bar -->
+      <div class="add-category-bar">
+        <md-outlined-text-field
+          label="添加自定义分类名称 (如: 加密货币、芯片、硬科技)"
+          :value="newCategoryName"
+          @input="newCategoryName = ($event.target as HTMLInputElement).value"
+          @keydown.enter.prevent="addCustomCategory"
+          class="custom-cat-input"
+        />
+        <md-outlined-button @click="addCustomCategory">
+          <span slot="icon" class="material-symbols-outlined">add</span>
+          添加分类
+        </md-outlined-button>
+      </div>
+
       <div class="checkbox-group">
         <label v-for="cat in availableCategories" :key="cat" class="checkbox-label">
           <md-checkbox
@@ -90,6 +106,7 @@
             @change="toggleCategory(cat)"
           ></md-checkbox>
           <span>{{ cat }}</span>
+          <span v-if="customCategories.includes(cat)" class="remove-cat-btn" @click.stop.prevent="removeCustomCategory(cat)" title="删除自定义分类">&times;</span>
         </label>
       </div>
     </section>
@@ -145,11 +162,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 
-const availableCategories = ['AI', '金融', '科技', '政治', '游戏', '娱乐', '汽车', '体育', '其他'];
+const defaultCategories = ['AI', '金融', '科技', '政治', '游戏', '娱乐', '汽车', '体育', '其他'];
+const customCategories = ref<string[]>([]);
+const newCategoryName = ref('');
 const targetCategories = ref<string[]>(['AI', '金融', '科技']);
+
+const availableCategories = computed(() => {
+  const list = [...defaultCategories];
+  for (const c of customCategories.value) {
+    if (!list.includes(c)) {
+      list.push(c);
+    }
+  }
+  return list;
+});
 
 const form = ref({
   x_auth_token: '',
@@ -181,6 +210,11 @@ const fetchConfig = async () => {
         targetCategories.value = JSON.parse(data.target_categories);
       } catch (e) {}
     }
+    if (data.custom_categories) {
+      try {
+        customCategories.value = JSON.parse(data.custom_categories);
+      } catch (e) {}
+    }
   } catch (err) {
     console.error(err);
   }
@@ -192,6 +226,29 @@ const toggleCategory = (cat: string) => {
     targetCategories.value.splice(idx, 1);
   } else {
     targetCategories.value.push(cat);
+  }
+};
+
+const addCustomCategory = () => {
+  const val = newCategoryName.value.trim();
+  if (!val) return;
+  if (availableCategories.value.includes(val)) {
+    alert('该分类已存在');
+    return;
+  }
+  customCategories.value.push(val);
+  targetCategories.value.push(val);
+  newCategoryName.value = '';
+};
+
+const removeCustomCategory = (cat: string) => {
+  const idx = customCategories.value.indexOf(cat);
+  if (idx > -1) {
+    customCategories.value.splice(idx, 1);
+  }
+  const targetIdx = targetCategories.value.indexOf(cat);
+  if (targetIdx > -1) {
+    targetCategories.value.splice(targetIdx, 1);
   }
 };
 
@@ -235,6 +292,7 @@ const saveAllConfigs = async (notify = true) => {
     const payload = {
       ...form.value,
       target_categories: JSON.stringify(targetCategories.value),
+      custom_categories: JSON.stringify(customCategories.value),
     };
     await axios.post('/api/config', payload);
     if (notify) {
@@ -310,6 +368,37 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
+}
+
+.add-category-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.custom-cat-input {
+  flex: 1;
+  max-width: 400px;
+}
+
+.remove-cat-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--md-sys-color-surface-variant);
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 12px;
+  margin-left: 4px;
+  cursor: pointer;
+}
+
+.remove-cat-btn:hover {
+  background-color: #c62828;
+  color: white;
 }
 
 .checkbox-label {

@@ -105,8 +105,19 @@ import axios from 'axios';
 import { marked } from 'marked';
 import { NewsItem } from '../types';
 
-const categories = ['ALL', 'AI', '金融', '科技', '政治', '游戏', '娱乐', '其他'];
+const defaultCategories = ['ALL', 'AI', '金融', '科技', '政治', '游戏', '娱乐', '其他'];
+const customCategories = ref<string[]>([]);
 const selectedCategory = ref('ALL');
+
+const categories = computed(() => {
+  const list = [...defaultCategories];
+  for (const c of customCategories.value) {
+    if (!list.includes(c)) {
+      list.push(c);
+    }
+  }
+  return list;
+});
 const searchQuery = ref('');
 const newsList = ref<NewsItem[]>([]);
 const total = ref(0);
@@ -120,16 +131,24 @@ let debounceTimer: any = null;
 const fetchNews = async () => {
   loading.value = true;
   try {
-    const res = await axios.get('/api/news', {
-      params: {
-        category: selectedCategory.value,
-        search: searchQuery.value,
-        page: page.value,
-        limit: limit.value,
-      },
-    });
-    newsList.value = res.data.data;
-    total.value = res.data.total;
+    const [newsRes, configRes] = await Promise.all([
+      axios.get('/api/news', {
+        params: {
+          category: selectedCategory.value,
+          search: searchQuery.value,
+          page: page.value,
+          limit: limit.value,
+        },
+      }),
+      axios.get('/api/config'),
+    ]);
+    newsList.value = newsRes.data.data;
+    total.value = newsRes.data.total;
+    if (configRes.data.data?.custom_categories) {
+      try {
+        customCategories.value = JSON.parse(configRes.data.data.custom_categories);
+      } catch (e) {}
+    }
   } catch (err: any) {
     console.error('Fetch news error:', err);
   } finally {
