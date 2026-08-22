@@ -1,0 +1,345 @@
+<template>
+  <div class="settings-container">
+    <h2>系统配置中心</h2>
+
+    <!-- X Credentials Settings -->
+    <section class="settings-section m3-card">
+      <div class="section-header">
+        <span class="material-symbols-outlined section-icon">account_box</span>
+        <div>
+          <h3>X (Twitter) Cookie 凭证设置</h3>
+          <p class="section-desc">全自动登录抓取推文所需的 Cookie 验证凭证</p>
+        </div>
+      </div>
+      <div class="form-grid">
+        <md-outlined-text-field
+          label="auth_token Cookie 值"
+          :value="form.x_auth_token"
+          @input="form.x_auth_token = ($event.target as HTMLInputElement).value"
+          type="password"
+        />
+        <md-outlined-text-field
+          label="ct0 (CSRF Token) Cookie 值"
+          :value="form.x_ct0"
+          @input="form.x_ct0 = ($event.target as HTMLInputElement).value"
+          type="password"
+        />
+      </div>
+      <div class="section-footer">
+        <md-outlined-button @click="testTwitterCookie" :disabled="testingX">
+          {{ testingX ? '正在连线验证...' : '测试 Cookie 有效性' }}
+        </md-outlined-button>
+        <span v-if="xTestResult" class="test-result" :class="{ success: xTestSuccess }">
+          {{ xTestResult }}
+        </span>
+      </div>
+    </section>
+
+    <!-- AI Model Settings -->
+    <section class="settings-section m3-card">
+      <div class="section-header">
+        <span class="material-symbols-outlined section-icon">smart_toy</span>
+        <div>
+          <h3>OpenAI 兼容 API 对接</h3>
+          <p class="section-desc">对接到 OpenAI、DeepSeek、Claude 代理或本地 Ollama API 接口</p>
+        </div>
+      </div>
+      <div class="form-grid">
+        <md-outlined-text-field
+          label="API Base URL"
+          :value="form.ai_base_url"
+          @input="form.ai_base_url = ($event.target as HTMLInputElement).value"
+          supporting-text="例如: https://api.openai.com/v1 或 https://api.deepseek.com"
+        />
+        <md-outlined-text-field
+          label="API Key"
+          :value="form.ai_api_key"
+          @input="form.ai_api_key = ($event.target as HTMLInputElement).value"
+          type="password"
+        />
+        <md-outlined-text-field
+          label="Model 名称"
+          :value="form.ai_model"
+          @input="form.ai_model = ($event.target as HTMLInputElement).value"
+          supporting-text="例如: gpt-3.5-turbo, deepseek-chat, gpt-4o"
+        />
+      </div>
+      <div class="section-footer">
+        <md-outlined-button @click="testAIConnection" :disabled="testingAI">
+          {{ testingAI ? '正在测试 AI 连接...' : '测试 AI 接口' }}
+        </md-outlined-button>
+        <span v-if="aiTestResult" class="test-result" :class="{ success: aiTestSuccess }">
+          {{ aiTestResult }}
+        </span>
+      </div>
+    </section>
+
+    <!-- Target Category Filter Settings -->
+    <section class="settings-section m3-card">
+      <div class="section-header">
+        <span class="material-symbols-outlined section-icon">filter_alt</span>
+        <div>
+          <h3>目标新闻分类保留设置</h3>
+          <p class="section-desc">AI 模型分析后，仅将勾选选中的分类新闻自动保存入 SQLite 数据库</p>
+        </div>
+      </div>
+      <div class="checkbox-group">
+        <label v-for="cat in availableCategories" :key="cat" class="checkbox-label">
+          <md-checkbox
+            :checked="targetCategories.includes(cat)"
+            @change="toggleCategory(cat)"
+          ></md-checkbox>
+          <span>{{ cat }}</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Scheduler Settings -->
+    <section class="settings-section m3-card">
+      <div class="section-header">
+        <span class="material-symbols-outlined section-icon">schedule</span>
+        <div>
+          <h3>自动定时抓取周期设置</h3>
+          <p class="section-desc">设定自动触发任务的时间间隔（支持分钟、小时、天、周）</p>
+        </div>
+      </div>
+      <div class="scheduler-controls">
+        <label class="switch-label">
+          <span>启用定时自动抓取</span>
+          <md-switch
+            :selected="form.schedule_enabled === 'true'"
+            @change="form.schedule_enabled = form.schedule_enabled === 'true' ? 'false' : 'true'"
+          ></md-switch>
+        </label>
+
+        <div class="schedule-inputs" v-if="form.schedule_enabled === 'true'">
+          <span>每</span>
+          <md-outlined-text-field
+            type="number"
+            :value="form.schedule_value"
+            @input="form.schedule_value = ($event.target as HTMLInputElement).value"
+            style="width: 80px;"
+          />
+          <md-outlined-select
+            :value="form.schedule_unit"
+            @change="form.schedule_unit = ($event.target as HTMLSelectElement).value"
+          >
+            <md-select-option value="minutes"><div slot="headline">分钟</div></md-select-option>
+            <md-select-option value="hours"><div slot="headline">小时</div></md-select-option>
+            <md-select-option value="days"><div slot="headline">天</div></md-select-option>
+            <md-select-option value="weeks"><div slot="headline">周</div></md-select-option>
+          </md-outlined-select>
+          <span>自动抓取一次</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Save Config Action -->
+    <div class="save-bar">
+      <md-filled-button class="save-btn" @click="saveAllConfigs">
+        <span slot="icon" class="material-symbols-outlined">save</span>
+        保存系统设置
+      </md-filled-button>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import axios from 'axios';
+
+const availableCategories = ['AI', '金融', '科技', '政治', '游戏', '娱乐', '汽车', '体育', '其他'];
+const targetCategories = ref<string[]>(['AI', '金融', '科技']);
+
+const form = ref({
+  x_auth_token: '',
+  x_ct0: '',
+  ai_base_url: 'https://api.openai.com/v1',
+  ai_api_key: '',
+  ai_model: 'gpt-3.5-turbo',
+  schedule_enabled: 'false',
+  schedule_value: '1',
+  schedule_unit: 'hours',
+});
+
+const testingX = ref(false);
+const xTestResult = ref('');
+const xTestSuccess = ref(false);
+
+const testingAI = ref(false);
+const aiTestResult = ref('');
+const aiTestSuccess = ref(false);
+
+const fetchConfig = async () => {
+  try {
+    const res = await axios.get('/api/config');
+    const data = res.data.data;
+    Object.assign(form.value, data);
+
+    if (data.target_categories) {
+      try {
+        targetCategories.value = JSON.parse(data.target_categories);
+      } catch (e) {}
+    }
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const toggleCategory = (cat: string) => {
+  const idx = targetCategories.value.indexOf(cat);
+  if (idx > -1) {
+    targetCategories.value.splice(idx, 1);
+  } else {
+    targetCategories.value.push(cat);
+  }
+};
+
+const testTwitterCookie = async () => {
+  testingX.value = true;
+  xTestResult.value = '';
+  try {
+    const res = await axios.post('/api/test/twitter', {
+      authToken: form.value.x_auth_token,
+      ct0: form.value.x_ct0,
+    });
+    xTestSuccess.value = res.data.success;
+    xTestResult.value = res.data.message;
+  } catch (err: any) {
+    xTestSuccess.value = false;
+    xTestResult.value = '测试失败';
+  } finally {
+    testingX.value = false;
+  }
+};
+
+const testAIConnection = async () => {
+  testingAI.value = true;
+  aiTestResult.value = '';
+  // Save temp to test backend endpoint
+  await saveAllConfigs(false);
+  try {
+    const res = await axios.post('/api/test/ai');
+    aiTestSuccess.value = res.data.success;
+    aiTestResult.value = res.data.message;
+  } catch (err: any) {
+    aiTestSuccess.value = false;
+    aiTestResult.value = '测试连接失败';
+  } finally {
+    testingAI.value = false;
+  }
+};
+
+const saveAllConfigs = async (notify = true) => {
+  try {
+    const payload = {
+      ...form.value,
+      target_categories: JSON.stringify(targetCategories.value),
+    };
+    await axios.post('/api/config', payload);
+    if (notify) {
+      alert('所有系统设置已成功保存！');
+    }
+  } catch (err: any) {
+    alert(`保存失败: ${err.message}`);
+  }
+};
+
+onMounted(() => {
+  fetchConfig();
+});
+</script>
+
+<style scoped>
+.settings-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 900px;
+}
+
+.settings-section {
+  background-color: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-large);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.section-icon {
+  font-size: 32px;
+  color: var(--md-sys-color-primary);
+}
+
+.section-desc {
+  font-size: 13px;
+  color: var(--md-sys-color-on-surface-variant);
+  margin-top: 2px;
+}
+
+.form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.section-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.test-result {
+  font-size: 13px;
+  color: #c62828;
+}
+
+.test-result.success {
+  color: #2e7d32;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.scheduler-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.schedule-inputs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.save-bar {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.save-btn {
+  padding: 0 24px;
+}
+</style>

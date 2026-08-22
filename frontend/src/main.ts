@@ -1,0 +1,29 @@
+import { createApp } from 'vue';
+import { createPinia } from 'pinia';
+import App from './App.vue';
+import router from './router';
+import './styles/m3-theme.css';
+
+// Import Material Web Components
+import '@material/web/button/filled-button.js';
+import '@material/web/button/outlined-button.js';
+import '@material/web/button/text-button.js';
+import '@material/web/iconbutton/icon-button.js';
+import '@material/web/textfield/outlined-text-field.js';
+import '@material/web/checkbox/checkbox.js';
+import '@material/web/chips/chip-set.js';
+import '@material/web/chips/filter-chip.js';
+import '@material/web/chips/assist-chip.js';
+import '@material/web/dialog/dialog.js';
+import '@material/web/progress/circular-progress.js';
+import '@material/web/switch/switch.js';
+import '@material/web/select/outlined-select.js';
+import '@material/web/select/select-option.js';
+import '@material/web/icon/icon.js';
+
+const app = createApp(App);
+
+app.use(createPinia());
+app.use(router);
+
+app.mount('#app');
