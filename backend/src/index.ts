@@ -69,7 +69,7 @@ app.delete('/api/news/:id', async (req: Request, res: Response) => {
 // --- Config API ---
 app.get('/api/config', async (req: Request, res: Response) => {
   try {
-    const keys = ['x_auth_token', 'x_ct0', 'ai_base_url', 'ai_api_key', 'ai_model', 'target_categories', 'custom_categories', 'schedule_enabled', 'schedule_value', 'schedule_unit'];
+    const keys = ['x_auth_token', 'x_ct0', 'ai_base_url', 'ai_api_key', 'ai_model', 'target_categories', 'all_categories', 'schedule_enabled', 'schedule_value', 'schedule_unit'];
     const configMap: Record<string, string> = {};
     for (const k of keys) {
       configMap[k] = await getSystemConfig(k);

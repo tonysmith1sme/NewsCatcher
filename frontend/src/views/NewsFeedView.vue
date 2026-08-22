@@ -100,24 +100,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 import { marked } from 'marked';
 import { NewsItem } from '../types';
 
 const defaultCategories = ['ALL', 'AI', '金融', '科技', '政治', '游戏', '娱乐', '其他'];
-const customCategories = ref<string[]>([]);
+const categories = ref<string[]>([...defaultCategories]);
 const selectedCategory = ref('ALL');
-
-const categories = computed(() => {
-  const list = [...defaultCategories];
-  for (const c of customCategories.value) {
-    if (!list.includes(c)) {
-      list.push(c);
-    }
-  }
-  return list;
-});
 const searchQuery = ref('');
 const newsList = ref<NewsItem[]>([]);
 const total = ref(0);
@@ -144,9 +134,15 @@ const fetchNews = async () => {
     ]);
     newsList.value = newsRes.data.data;
     total.value = newsRes.data.total;
-    if (configRes.data.data?.custom_categories) {
+    if (configRes.data.data?.all_categories) {
       try {
-        customCategories.value = JSON.parse(configRes.data.data.custom_categories);
+        const configured = JSON.parse(configRes.data.data.all_categories);
+        categories.value = ['ALL', ...configured];
+      } catch (e) {}
+    } else if (configRes.data.data?.custom_categories) {
+      try {
+        const custom = JSON.parse(configRes.data.data.custom_categories);
+        categories.value = ['ALL', ...Array.from(new Set(['AI', '金融', '科技', '政治', '游戏', '娱乐', '汽车', '体育', '其他', ...custom]))];
       } catch (e) {}
     }
   } catch (err: any) {

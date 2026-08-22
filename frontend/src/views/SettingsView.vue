@@ -74,39 +74,39 @@
       </div>
     </section>
 
-    <!-- Target Category Filter Settings -->
+    <!-- Category Management & Retention Settings -->
     <section class="settings-section m3-card">
       <div class="section-header">
         <span class="material-symbols-outlined section-icon">filter_alt</span>
         <div>
-          <h3>目标新闻分类保留设置与自定义分类</h3>
-          <p class="section-desc">AI 模型分析后，仅将勾选选中的分类新闻自动保存入 SQLite 数据库；您可以增加自定义分类</p>
+          <h3>新闻分类全功能管理与保留设置</h3>
+          <p class="section-desc">全权管理系统中的新闻分类（可任意添加新分类或删除默认分类）；勾选表示仅保留对应分类的新闻到 SQLite 数据库</p>
         </div>
       </div>
 
-      <!-- Add Custom Category Bar -->
+      <!-- Add Category Bar -->
       <div class="add-category-bar">
         <md-outlined-text-field
-          label="添加自定义分类名称 (如: 加密货币、芯片、硬科技)"
+          label="添加分类名称 (如: 加密货币、芯片、硬科技)"
           :value="newCategoryName"
           @input="newCategoryName = ($event.target as HTMLInputElement).value"
-          @keydown.enter.prevent="addCustomCategory"
+          @keydown.enter.prevent="addCategory"
           class="custom-cat-input"
         />
-        <md-outlined-button @click="addCustomCategory">
+        <md-outlined-button @click="addCategory">
           <span slot="icon" class="material-symbols-outlined">add</span>
           添加分类
         </md-outlined-button>
       </div>
 
       <div class="checkbox-group">
-        <label v-for="cat in availableCategories" :key="cat" class="checkbox-label">
+        <label v-for="cat in allCategories" :key="cat" class="checkbox-label">
           <md-checkbox
             :checked="targetCategories.includes(cat)"
             @change="toggleCategory(cat)"
           ></md-checkbox>
           <span>{{ cat }}</span>
-          <span v-if="customCategories.includes(cat)" class="remove-cat-btn" @click.stop.prevent="removeCustomCategory(cat)" title="删除自定义分类">&times;</span>
+          <span class="remove-cat-btn" @click.stop.prevent="removeCategory(cat)" title="删除该分类">&times;</span>
         </label>
       </div>
     </section>
@@ -162,23 +162,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
 const defaultCategories = ['AI', '金融', '科技', '政治', '游戏', '娱乐', '汽车', '体育', '其他'];
-const customCategories = ref<string[]>([]);
+const allCategories = ref<string[]>([...defaultCategories]);
 const newCategoryName = ref('');
 const targetCategories = ref<string[]>(['AI', '金融', '科技']);
-
-const availableCategories = computed(() => {
-  const list = [...defaultCategories];
-  for (const c of customCategories.value) {
-    if (!list.includes(c)) {
-      list.push(c);
-    }
-  }
-  return list;
-});
 
 const form = ref({
   x_auth_token: '',
@@ -210,9 +200,14 @@ const fetchConfig = async () => {
         targetCategories.value = JSON.parse(data.target_categories);
       } catch (e) {}
     }
-    if (data.custom_categories) {
+    if (data.all_categories) {
       try {
-        customCategories.value = JSON.parse(data.custom_categories);
+        allCategories.value = JSON.parse(data.all_categories);
+      } catch (e) {}
+    } else if (data.custom_categories) {
+      try {
+        const custom = JSON.parse(data.custom_categories);
+        allCategories.value = Array.from(new Set([...defaultCategories, ...custom]));
       } catch (e) {}
     }
   } catch (err) {
@@ -229,22 +224,26 @@ const toggleCategory = (cat: string) => {
   }
 };
 
-const addCustomCategory = () => {
+const addCategory = () => {
   const val = newCategoryName.value.trim();
   if (!val) return;
-  if (availableCategories.value.includes(val)) {
+  if (allCategories.value.includes(val)) {
     alert('该分类已存在');
     return;
   }
-  customCategories.value.push(val);
+  allCategories.value.push(val);
   targetCategories.value.push(val);
   newCategoryName.value = '';
 };
 
-const removeCustomCategory = (cat: string) => {
-  const idx = customCategories.value.indexOf(cat);
+const removeCategory = (cat: string) => {
+  if (allCategories.value.length <= 1) {
+    alert('最少需保留一个分类');
+    return;
+  }
+  const idx = allCategories.value.indexOf(cat);
   if (idx > -1) {
-    customCategories.value.splice(idx, 1);
+    allCategories.value.splice(idx, 1);
   }
   const targetIdx = targetCategories.value.indexOf(cat);
   if (targetIdx > -1) {
@@ -292,7 +291,7 @@ const saveAllConfigs = async (notify = true) => {
     const payload = {
       ...form.value,
       target_categories: JSON.stringify(targetCategories.value),
-      custom_categories: JSON.stringify(customCategories.value),
+      all_categories: JSON.stringify(allCategories.value),
     };
     await axios.post('/api/config', payload);
     if (notify) {
