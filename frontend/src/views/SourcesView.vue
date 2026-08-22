@@ -236,8 +236,8 @@ onMounted(() => {
 .add-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 12px 0;
-  min-width: 380px;
+  gap: 20px;
+  padding: 16px 8px;
+  min-width: 420px;
 }
 </style>

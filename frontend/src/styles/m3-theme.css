@@ -40,6 +40,31 @@ body {
   'GRAD' 0,
   'opsz' 24;
   vertical-align: middle;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* Material Web Button Slot Icon Vertical Alignment Fix */
+md-filled-button [slot="icon"],
+md-outlined-button [slot="icon"],
+md-text-button [slot="icon"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  height: 1em;
+  width: 1em;
+}
+
+/* Dialog Padding Fix for Material Design 3 Web Components */
+md-dialog {
+  --md-dialog-container-padding: 24px;
+}
+
+md-dialog [slot="content"] {
+  padding: 16px 4px 8px 4px;
 }
 
 /* Markdown Custom M3 Styling */
