@@ -151,10 +151,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import axios from 'axios';
 import { marked } from 'marked';
 import { NewsItem } from '../types';
 import { showSnackbar, confirmDialog } from '../composables/useFeedback';
+import { api, apiError } from '../api/client';
 
 const defaultCategories = ['ALL', 'AI', '金融', '科技', '政治', '游戏', '娱乐', '其他'];
 const categories = ref<string[]>([...defaultCategories]);
@@ -173,16 +173,16 @@ let debounceTimer: any = null;
 const fetchNews = async () => {
   loading.value = true;
   try {
-    const res = await axios.get('/api/news', {
+    const res = await api.get('/news', {
       params: {
         category: selectedCategory.value,
-        search: searchQuery.value,
+        q: searchQuery.value,
         page: page.value,
-        limit: limit.value,
+        pageSize: limit.value,
       },
     });
     newsList.value = res.data.data;
-    total.value = res.data.total;
+    total.value = res.data.meta?.total || 0;
   } catch (err: any) {
     console.error('Fetch news error:', err);
   } finally {
@@ -192,17 +192,10 @@ const fetchNews = async () => {
 
 const fetchCategories = async () => {
   try {
-    const configRes = await axios.get('/api/config');
-    if (configRes.data.data?.all_categories) {
-      try {
-        const configured = JSON.parse(configRes.data.data.all_categories);
-        categories.value = ['ALL', ...configured];
-      } catch (e) {}
-    } else if (configRes.data.data?.custom_categories) {
-      try {
-        const custom = JSON.parse(configRes.data.data.custom_categories);
-        categories.value = ['ALL', ...Array.from(new Set(['AI', '金融', '科技', '政治', '游戏', '娱乐', '汽车', '体育', '其他', ...custom]))];
-      } catch (e) {}
+    const configRes = await api.get('/settings');
+    const all = configRes.data.data?.categories?.all;
+    if (Array.isArray(all) && all.length > 0) {
+      categories.value = ['ALL', ...all];
     }
   } catch (e) {
     console.error('Fetch categories error:', e);
@@ -235,7 +228,7 @@ const openReader = async (item: NewsItem) => {
   dialogTab.value = 'report';
   activeNews.value = item;
   try {
-    const res = await axios.get(`/api/news/${item.id}`);
+    const res = await api.get(`/news/${item.id}`);
     if (res.data.data) {
       activeNews.value = res.data.data;
     }
@@ -270,12 +263,12 @@ const deleteNews = async (id?: string) => {
   });
   if (!ok) return;
   try {
-    await axios.delete(`/api/news/${id}`);
+    await api.delete(`/news/${id}`);
     activeNews.value = null;
     fetchNews();
     showSnackbar('新闻已删除', 'success');
   } catch (err: any) {
-    showSnackbar('删除失败', 'error');
+    showSnackbar(apiError(err) || '删除失败', 'error');
   }
 };
 

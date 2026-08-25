@@ -41,14 +41,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
 import { LogItem } from '../types';
+import { api } from '../api/client';
 
 const logs = ref<LogItem[]>([]);
 
 const fetchLogs = async () => {
   try {
-    const res = await axios.get('/api/logs');
+    const res = await api.get('/jobs');
     logs.value = res.data.data;
   } catch (err) {
     console.error(err);

@@ -398,6 +398,26 @@
           />
         </div>
       </div>
+
+      <hr class="section-divider" />
+
+      <div class="section-header">
+        <span class="material-symbols-outlined section-icon">key</span>
+        <div>
+          <h3>开放 API 访问密钥</h3>
+          <p class="section-desc">第三方前端请在请求头携带 Authorization: Bearer &lt;API Key&gt;，文档见 docs/api.md</p>
+        </div>
+      </div>
+      <md-outlined-text-field
+        label="API Key"
+        type="password"
+        :value="apiAccessKey"
+        readonly
+      />
+      <div class="section-footer">
+        <md-outlined-button @click="copyApiKey">复制密钥</md-outlined-button>
+        <md-outlined-button @click="rotateApiKey">轮换密钥</md-outlined-button>
+      </div>
     </section>
 
     <!-- Save Config Action -->
@@ -412,9 +432,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
 import { showSnackbar, confirmDialog } from '../composables/useFeedback';
 import { PromptPreset } from '../types';
+import { api, apiError, getApiKey, setApiKey } from '../api/client';
 
 const activeTab = ref(0);
 
@@ -476,8 +496,8 @@ let lastUserPromptField: HTMLInputElement | null = null;
 
 const fetchPromptPresets = async () => {
   try {
-    const res = await axios.get('/api/prompt-presets');
-    promptPresets.value = res.data.data.presets || [];
+    const res = await api.get('/prompt-presets');
+    promptPresets.value = res.data.data.items || [];
     activePresetId.value = res.data.data.activeId || '';
   } catch (err) {
     console.error(err);
@@ -488,11 +508,11 @@ const onActivePresetChange = async (event: Event) => {
   const id = (event.target as HTMLSelectElement).value;
   if (!id || id === activePresetId.value) return;
   try {
-    await axios.post(`/api/prompt-presets/${id}/activate`);
+    await api.post(`/prompt-presets/${id}/activate`);
     activePresetId.value = id;
     showSnackbar('已切换当前提示词预设', 'success');
   } catch (err: any) {
-    showSnackbar(err.response?.data?.message || '切换预设失败', 'error');
+    showSnackbar(apiError(err) || '切换预设失败', 'error');
   }
 };
 
@@ -542,22 +562,22 @@ const savePresetEditor = async () => {
   }
   try {
     if (editingPresetId.value) {
-      await axios.put(`/api/prompt-presets/${editingPresetId.value}`, presetDraft.value);
+      await api.patch(`/prompt-presets/${editingPresetId.value}`, presetDraft.value);
       showSnackbar('预设已更新', 'success');
     } else {
-      await axios.post('/api/prompt-presets', presetDraft.value);
+      await api.post('/prompt-presets', presetDraft.value);
       showSnackbar('预设已创建', 'success');
     }
     showPresetDialog.value = false;
     await fetchPromptPresets();
   } catch (err: any) {
-    showSnackbar(err.response?.data?.message || '保存预设失败', 'error');
+    showSnackbar(apiError(err) || '保存预设失败', 'error');
   }
 };
 
 const duplicatePreset = async (preset: PromptPreset) => {
   try {
-    await axios.post('/api/prompt-presets', {
+    await api.post('/prompt-presets', {
       name: `${preset.name} 副本`,
       systemPrompt: preset.systemPrompt,
       userPromptTemplate: preset.userPromptTemplate,
@@ -565,7 +585,7 @@ const duplicatePreset = async (preset: PromptPreset) => {
     await fetchPromptPresets();
     showSnackbar('已复制预设', 'success');
   } catch (err: any) {
-    showSnackbar(err.response?.data?.message || '复制失败', 'error');
+    showSnackbar(apiError(err) || '复制失败', 'error');
   }
 };
 
@@ -578,11 +598,11 @@ const resetPreset = async (id: string) => {
   });
   if (!ok) return;
   try {
-    await axios.post(`/api/prompt-presets/${id}/reset`);
+    await api.post(`/prompt-presets/${id}/reset`);
     await fetchPromptPresets();
     showSnackbar('已恢复默认提示词', 'success');
   } catch (err: any) {
-    showSnackbar(err.response?.data?.message || '恢复失败', 'error');
+    showSnackbar(apiError(err) || '恢复失败', 'error');
   }
 };
 
@@ -595,35 +615,47 @@ const removePreset = async (id: string) => {
   });
   if (!ok) return;
   try {
-    await axios.delete(`/api/prompt-presets/${id}`);
+    await api.delete(`/prompt-presets/${id}`);
     await fetchPromptPresets();
     showSnackbar('预设已删除', 'success');
   } catch (err: any) {
-    showSnackbar(err.response?.data?.message || '删除失败', 'error');
+    showSnackbar(apiError(err) || '删除失败', 'error');
   }
 };
 
+const apiAccessKey = ref('');
+
 const fetchConfig = async () => {
   try {
-    const res = await axios.get('/api/config');
-    const data = res.data.data;
-    Object.assign(form.value, data);
-
-    if (data.target_categories) {
-      try {
-        targetCategories.value = JSON.parse(data.target_categories);
-      } catch (e) {}
+    const res = await api.get('/settings', { params: { reveal: 1 } });
+    const data = res.data.data || {};
+    form.value.x_auth_token = data.twitter?.authToken || '';
+    form.value.x_ct0 = data.twitter?.ct0 || '';
+    form.value.ai_base_url = data.ai?.baseUrl || form.value.ai_base_url;
+    form.value.ai_api_key = data.ai?.apiKey || '';
+    form.value.ai_model = data.ai?.model || form.value.ai_model;
+    form.value.schedule_enabled = data.schedule?.enabled ? 'true' : 'false';
+    form.value.schedule_value = String(data.schedule?.value ?? '1');
+    form.value.schedule_unit = data.schedule?.unit || 'hours';
+    form.value.notify_tg_enabled = data.notifications?.telegram?.enabled ? 'true' : 'false';
+    form.value.notify_tg_bot_token = data.notifications?.telegram?.botToken || '';
+    form.value.notify_tg_chat_id = data.notifications?.telegram?.chatId || '';
+    form.value.notify_qq_enabled = data.notifications?.qq?.enabled ? 'true' : 'false';
+    form.value.notify_qq_app_id = data.notifications?.qq?.appId || '';
+    form.value.notify_qq_client_secret = data.notifications?.qq?.clientSecret || '';
+    form.value.notify_qq_channel_id = data.notifications?.qq?.channelId || '';
+    form.value.notify_qq_openid = data.notifications?.qq?.openid || '';
+    form.value.notify_webhook_enabled = data.notifications?.webhook?.enabled ? 'true' : 'false';
+    form.value.notify_webhook_url = data.notifications?.webhook?.url || '';
+    form.value.save_original_text = data.storage?.saveOriginalText === false ? 'false' : 'true';
+    form.value.save_original_images = data.storage?.saveOriginalImages === false ? 'false' : 'true';
+    form.value.storage_media_dir = data.storage?.mediaDir || '';
+    if (Array.isArray(data.categories?.target)) targetCategories.value = data.categories.target;
+    if (Array.isArray(data.categories?.all) && data.categories.all.length > 0) {
+      allCategories.value = data.categories.all;
     }
-    if (data.all_categories) {
-      try {
-        allCategories.value = JSON.parse(data.all_categories);
-      } catch (e) {}
-    } else if (data.custom_categories) {
-      try {
-        const custom = JSON.parse(data.custom_categories);
-        allCategories.value = Array.from(new Set([...defaultCategories, ...custom]));
-      } catch (e) {}
-    }
+    apiAccessKey.value = data.apiKey || getApiKey();
+    if (apiAccessKey.value) setApiKey(apiAccessKey.value);
   } catch (err) {
     console.error(err);
   }
@@ -696,15 +728,15 @@ const testTwitterCookie = async () => {
   testingX.value = true;
   xTestResult.value = '';
   try {
-    const res = await axios.post('/api/test/twitter', {
+    const res = await api.post('/settings/twitter/test', {
       authToken: form.value.x_auth_token,
       ct0: form.value.x_ct0,
     });
-    xTestSuccess.value = res.data.success;
-    xTestResult.value = res.data.message;
+    xTestSuccess.value = true;
+    xTestResult.value = res.data.data?.message || '验证成功';
   } catch (err: any) {
     xTestSuccess.value = false;
-    xTestResult.value = err.response?.data?.message || err.message || '测试失败';
+    xTestResult.value = apiError(err) || '测试失败';
   } finally {
     testingX.value = false;
   }
@@ -716,12 +748,12 @@ const testAIConnection = async () => {
   // Save temp to test backend endpoint
   await saveAllConfigs(false);
   try {
-    const res = await axios.post('/api/test/ai');
-    aiTestSuccess.value = res.data.success;
-    aiTestResult.value = res.data.message;
+    const res = await api.post('/settings/ai/test');
+    aiTestSuccess.value = true;
+    aiTestResult.value = res.data.data?.message || '连接成功';
   } catch (err: any) {
     aiTestSuccess.value = false;
-    aiTestResult.value = '测试连接失败';
+    aiTestResult.value = apiError(err) || '测试连接失败';
   } finally {
     testingAI.value = false;
   }
@@ -730,26 +762,82 @@ const testAIConnection = async () => {
 const testNotify = async (type: string) => {
   await saveAllConfigs(false);
   try {
-    const res = await axios.post('/api/test/notification', { type });
-    showSnackbar(res.data.message || '测试指令发送成功', 'success');
+    const res = await api.post('/settings/notifications/test', { channel: type });
+    showSnackbar(res.data.data?.message || '测试指令发送成功', 'success');
   } catch (err: any) {
-    showSnackbar(`测试通知发送失败: ${err.response?.data?.message || err.message}`, 'error');
+    showSnackbar(`测试通知发送失败: ${apiError(err)}`, 'error');
   }
 };
 
 const saveAllConfigs = async (notify = true) => {
   try {
-    const payload = {
-      ...form.value,
-      target_categories: JSON.stringify(targetCategories.value),
-      all_categories: JSON.stringify(allCategories.value),
-    };
-    await axios.post('/api/config', payload);
+    await api.patch('/settings', {
+      twitter: { authToken: form.value.x_auth_token, ct0: form.value.x_ct0 },
+      ai: { baseUrl: form.value.ai_base_url, apiKey: form.value.ai_api_key, model: form.value.ai_model },
+      schedule: {
+        enabled: form.value.schedule_enabled === 'true',
+        value: Number(form.value.schedule_value) || 1,
+        unit: form.value.schedule_unit,
+      },
+      notifications: {
+        telegram: {
+          enabled: form.value.notify_tg_enabled === 'true',
+          botToken: form.value.notify_tg_bot_token,
+          chatId: form.value.notify_tg_chat_id,
+        },
+        qq: {
+          enabled: form.value.notify_qq_enabled === 'true',
+          appId: form.value.notify_qq_app_id,
+          clientSecret: form.value.notify_qq_client_secret,
+          channelId: form.value.notify_qq_channel_id,
+          openid: form.value.notify_qq_openid,
+        },
+        webhook: {
+          enabled: form.value.notify_webhook_enabled === 'true',
+          url: form.value.notify_webhook_url,
+        },
+      },
+      storage: {
+        saveOriginalText: form.value.save_original_text === 'true',
+        saveOriginalImages: form.value.save_original_images === 'true',
+        mediaDir: form.value.storage_media_dir,
+      },
+      categories: { all: allCategories.value, target: targetCategories.value },
+    });
     if (notify) {
       showSnackbar('所有系统设置已成功保存', 'success');
     }
   } catch (err: any) {
-    showSnackbar(`保存失败: ${err.message}`, 'error');
+    showSnackbar(`保存失败: ${apiError(err)}`, 'error');
+  }
+};
+
+const copyApiKey = async () => {
+  if (!apiAccessKey.value) return;
+  try {
+    await navigator.clipboard.writeText(apiAccessKey.value);
+    showSnackbar('API Key 已复制', 'success');
+  } catch {
+    showSnackbar('复制失败，请手动选择复制', 'error');
+  }
+};
+
+const rotateApiKey = async () => {
+  const ok = await confirmDialog({
+    title: '轮换 API Key',
+    message: '旧密钥将立即失效，已对接的第三方前端需要改用新密钥。',
+    confirmLabel: '轮换',
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    const res = await api.post('/settings/api-key/rotate');
+    const key = res.data.data?.apiKey || '';
+    apiAccessKey.value = key;
+    setApiKey(key);
+    showSnackbar('API Key 已轮换', 'success');
+  } catch (err: any) {
+    showSnackbar(apiError(err) || '轮换失败', 'error');
   }
 };
 

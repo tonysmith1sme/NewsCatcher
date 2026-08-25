@@ -82,9 +82,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
 import { SourceItem } from '../types';
 import { showSnackbar, confirmDialog } from '../composables/useFeedback';
+import { api, apiError } from '../api/client';
 
 const sources = ref<SourceItem[]>([]);
 const showAddDialog = ref(false);
@@ -96,7 +96,7 @@ const newSource = ref({
 
 const fetchSources = async () => {
   try {
-    const res = await axios.get('/api/sources');
+    const res = await api.get('/sources');
     sources.value = res.data.data;
   } catch (err) {
     console.error(err);
@@ -113,10 +113,11 @@ const getTypeLabel = (type: string) => {
 
 const toggleSource = async (id: string) => {
   try {
-    await axios.patch(`/api/sources/${id}/toggle`);
+    const current = sources.value.find((s) => s.id === id);
+    await api.patch(`/sources/${id}`, { enabled: !current?.enabled });
     fetchSources();
   } catch (err) {
-    showSnackbar('切换状态失败', 'error');
+    showSnackbar(apiError(err) || '切换状态失败', 'error');
   }
 };
 
@@ -129,11 +130,11 @@ const deleteSource = async (id: string) => {
   });
   if (!ok) return;
   try {
-    await axios.delete(`/api/sources/${id}`);
+    await api.delete(`/sources/${id}`);
     fetchSources();
     showSnackbar('抓取源已删除', 'success');
   } catch (err) {
-    showSnackbar('删除失败', 'error');
+    showSnackbar(apiError(err) || '删除失败', 'error');
   }
 };
 
@@ -143,13 +144,13 @@ const saveSource = async () => {
     return;
   }
   try {
-    await axios.post('/api/sources', newSource.value);
+    await api.post('/sources', newSource.value);
     showAddDialog.value = false;
     newSource.value = { name: '', type: 'search', query: '' };
     fetchSources();
     showSnackbar('抓取源已添加', 'success');
   } catch (err: any) {
-    showSnackbar(`添加失败: ${err.response?.data?.message || err.message}`, 'error');
+    showSnackbar(`添加失败: ${apiError(err)}`, 'error');
   }
 };
 

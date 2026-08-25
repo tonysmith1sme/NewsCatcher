@@ -43,16 +43,51 @@
     </div>
 
     <FeedbackHost />
+
+    <md-dialog :open="showKeyDialog" @closed="showKeyDialog = false">
+      <div slot="headline">输入 API Key</div>
+      <div slot="content" class="api-key-dialog">
+        <p>API 已初始化。请粘贴访问密钥后继续使用（也可在系统设置 → 存储中查看或轮换）。</p>
+        <md-outlined-text-field
+          label="API Key"
+          type="password"
+          :value="apiKeyInput"
+          @input="apiKeyInput = ($event.target as HTMLInputElement).value"
+        />
+      </div>
+      <div slot="actions">
+        <md-text-button @click="showKeyDialog = false">取消</md-text-button>
+        <md-filled-button @click="saveApiKeyInput">保存</md-filled-button>
+      </div>
+    </md-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import axios from 'axios';
+import { onMounted, ref } from 'vue';
 import FeedbackHost from './components/FeedbackHost.vue';
 import { showSnackbar } from './composables/useFeedback';
+import { api, apiError, ensureApiKey, setApiKey } from './api/client';
 
 const isRunning = ref(false);
+const showKeyDialog = ref(false);
+const apiKeyInput = ref('');
+
+onMounted(async () => {
+  const ok = await ensureApiKey();
+  if (!ok) showKeyDialog.value = true;
+});
+
+const saveApiKeyInput = () => {
+  const key = apiKeyInput.value.trim();
+  if (!key) {
+    showSnackbar('请输入 API Key', 'error');
+    return;
+  }
+  setApiKey(key);
+  showKeyDialog.value = false;
+  showSnackbar('API Key 已保存', 'success');
+};
 
 const triggerFetchTask = async () => {
   if (isRunning.value) return;
@@ -60,15 +95,11 @@ const triggerFetchTask = async () => {
   showSnackbar('正在连线 X 接口并调用 AI 总结过滤中，请稍候...', 'info', 8000);
 
   try {
-    const res = await axios.post('/api/task/run');
-    if (res.data.success) {
-      showSnackbar(res.data.logMessage || '手动抓取与 AI 提炼任务执行完毕！', 'success', 6000);
-      window.dispatchEvent(new CustomEvent('refresh-news'));
-    } else {
-      showSnackbar(`执行失败: ${res.data.message}`, 'error', 6000);
-    }
+    const res = await api.post('/jobs', { type: 'fetch' });
+    showSnackbar(res.data.data?.logMessage || '手动抓取与 AI 提炼任务执行完毕！', 'success', 6000);
+    window.dispatchEvent(new CustomEvent('refresh-news'));
   } catch (err: any) {
-    showSnackbar(`抓取任务异常: ${err.response?.data?.message || err.message}`, 'error', 6000);
+    showSnackbar(`抓取任务异常: ${apiError(err)}`, 'error', 6000);
   } finally {
     isRunning.value = false;
   }
@@ -162,5 +193,14 @@ const triggerFetchTask = async () => {
   overflow-y: auto;
   padding: 24px;
   position: relative;
+}
+
+.api-key-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 420px;
+  font-size: 14px;
+  color: var(--md-sys-color-on-surface-variant);
 }
 </style>
