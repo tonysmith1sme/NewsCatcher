@@ -61,6 +61,7 @@ npm run dev
 
 - 前端访问地址：`http://localhost:4000` (或 `http://<IP>:4000`)
 - 后端 API 地址：`http://localhost:4001` (或 `http://<IP>:4001`)
+- 开放 REST：`http://localhost:4001/api/v1`（鉴权与资源说明见 [docs/api.md](docs/api.md)、[docs/openapi.yaml](docs/openapi.yaml)）
 
 ---
 

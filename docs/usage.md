@@ -4,6 +4,8 @@
 
 系统设置页按 Material Design 3 分为五个 Tab：**抓取**、**AI**、**分类**、**通知**、**存储**。保存、测试与删除等反馈均使用页面底部 Snackbar 或确认 Dialog，不会弹出浏览器原生弹窗。
 
+第三方前端请对接 `/api/v1`，使用 `Authorization: Bearer <API Key>`。密钥在 **存储** Tab 中查看或轮换，完整说明见 [api.md](./api.md)。
+
 ---
 
 ## 目录

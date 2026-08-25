@@ -1,0 +1,255 @@
+openapi: 3.0.3
+info:
+  title: NewsCatcher API
+  version: 1.0.0
+  description: X 新闻抓取与 AI 提炼系统的 REST API（/api/v1）
+servers:
+  - url: http://localhost:4001
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/health:
+    get:
+      security: []
+      summary: 健康检查
+      responses:
+        '200':
+          description: OK
+  /api/v1/setup:
+    post:
+      security: []
+      summary: 首次生成 API Key
+      responses:
+        '201':
+          description: 已生成
+        '403':
+          description: 已初始化
+  /api/v1/settings:
+    get:
+      summary: 读取设置
+      parameters:
+        - in: query
+          name: reveal
+          schema:
+            type: string
+            enum: ['1']
+      responses:
+        '200':
+          description: 分组配置
+    patch:
+      summary: 部分更新设置
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Settings'
+      responses:
+        '200':
+          description: 已更新
+  /api/v1/settings/twitter/test:
+    post:
+      summary: 测试 X Cookie
+      responses:
+        '200':
+          description: 验证成功
+        '400':
+          description: 验证失败
+  /api/v1/settings/ai/test:
+    post:
+      summary: 测试 AI 接口
+      responses:
+        '200':
+          description: 连接成功
+  /api/v1/settings/notifications/test:
+    post:
+      summary: 发送测试通知
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                channel:
+                  type: string
+                  enum: [telegram, qq, webhook]
+      responses:
+        '200':
+          description: 已发送
+  /api/v1/settings/api-key/rotate:
+    post:
+      summary: 轮换 API Key
+      responses:
+        '200':
+          description: 返回新密钥
+  /api/v1/news:
+    get:
+      summary: 新闻列表
+      parameters:
+        - in: query
+          name: category
+          schema: { type: string }
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, default: 12 }
+      responses:
+        '200':
+          description: 分页列表
+  /api/v1/news/{id}:
+    get:
+      summary: 新闻详情
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: 含 raw
+        '404':
+          description: 未找到
+    delete:
+      summary: 删除新闻
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: 已删除
+  /api/v1/sources:
+    get:
+      summary: 抓取源列表
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: 新建抓取源
+      responses:
+        '201':
+          description: 已创建
+  /api/v1/sources/{id}:
+    get:
+      summary: 抓取源详情
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: 更新抓取源
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: 删除抓取源
+      responses:
+        '204':
+          description: 已删除
+  /api/v1/prompt-presets:
+    get:
+      summary: 提示词预设列表
+      responses:
+        '200':
+          description: '{ items, activeId }'
+    post:
+      summary: 新建预设
+      responses:
+        '201':
+          description: 已创建
+  /api/v1/prompt-presets/{id}:
+    get:
+      summary: 预设详情
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: 更新预设
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: 删除预设
+      responses:
+        '204':
+          description: 已删除
+  /api/v1/prompt-presets/{id}/activate:
+    post:
+      summary: 启用预设
+      responses:
+        '200':
+          description: OK
+  /api/v1/prompt-presets/{id}/reset:
+    post:
+      summary: 恢复内置默认文案
+      responses:
+        '200':
+          description: OK
+  /api/v1/jobs:
+    get:
+      summary: 任务日志
+      responses:
+        '200':
+          description: 分页列表
+    post:
+      summary: 手动触发抓取
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [fetch]
+      responses:
+        '202':
+          description: 已接受
+        '409':
+          description: 已有任务在跑
+  /api/v1/jobs/{id}:
+    get:
+      summary: 单条任务日志
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Settings:
+      type: object
+      properties:
+        twitter:
+          type: object
+        ai:
+          type: object
+        schedule:
+          type: object
+        notifications:
+          type: object
+        storage:
+          type: object
+        categories:
+          type: object
