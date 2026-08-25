@@ -812,14 +812,45 @@ const saveAllConfigs = async (notify = true) => {
   }
 };
 
-const copyApiKey = async () => {
-  if (!apiAccessKey.value) return;
+const copyTextFallback = (text: string): boolean => {
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.style.position = 'fixed';
+  area.style.top = '0';
+  area.style.left = '0';
+  area.style.opacity = '0';
+  document.body.appendChild(area);
+  area.focus();
+  area.select();
+  area.setSelectionRange(0, text.length);
+  let ok = false;
   try {
-    await navigator.clipboard.writeText(apiAccessKey.value);
-    showSnackbar('API Key 已复制', 'success');
+    ok = document.execCommand('copy');
   } catch {
-    showSnackbar('复制失败，请手动选择复制', 'error');
+    ok = false;
   }
+  document.body.removeChild(area);
+  return ok;
+};
+
+const copyApiKey = async () => {
+  const text = apiAccessKey.value;
+  if (!text) return;
+  try {
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      showSnackbar('API Key 已复制', 'success');
+      return;
+    }
+  } catch {
+    // Firefox on HTTP or denied permission
+  }
+  if (copyTextFallback(text)) {
+    showSnackbar('API Key 已复制', 'success');
+    return;
+  }
+  showSnackbar('复制失败，请手动选择复制', 'error');
 };
 
 const rotateApiKey = async () => {
