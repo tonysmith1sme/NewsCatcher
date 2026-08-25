@@ -88,22 +88,35 @@ export class NotificationService {
         `摘要：${payload.summary}\n` +
         `链接：${payload.originalUrl}`;
 
-      // Channel message or Direct C2C/Group message
+      const qqHeaders = {
+        Authorization: `QQBot ${accessToken}`,
+        'X-Union-Appid': appId,
+      };
+      const proactiveBody = {
+        content,
+        msg_type: 0,
+        msg_seq: Date.now() % 1_000_000,
+      };
+
       if (channelId) {
         await axios.post(`https://api.sgroup.qq.com/channels/${channelId}/messages`, {
-          content: content,
+          content,
         }, {
-          headers: { Authorization: `QQBot ${accessToken}` },
+          headers: qqHeaders,
           timeout: 10000,
         });
       } else if (openid) {
-        await axios.post(`https://api.sgroup.qq.com/v2/users/${openid}/messages`, {
-          content: content,
-          msg_type: 0,
-        }, {
-          headers: { Authorization: `QQBot ${accessToken}` },
-          timeout: 10000,
-        });
+        try {
+          await axios.post(`https://api.sgroup.qq.com/v2/users/${openid}/messages`, proactiveBody, {
+            headers: qqHeaders,
+            timeout: 10000,
+          });
+        } catch (userErr: any) {
+          await axios.post(`https://api.sgroup.qq.com/v2/groups/${openid}/messages`, proactiveBody, {
+            headers: qqHeaders,
+            timeout: 10000,
+          });
+        }
       }
       console.log('[Notification] QQ 机器人消息发送成功');
     } catch (err: any) {
