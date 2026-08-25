@@ -154,6 +154,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 import { marked } from 'marked';
 import { NewsItem } from '../types';
+import { showSnackbar, confirmDialog } from '../composables/useFeedback';
 
 const defaultCategories = ['ALL', 'AI', '金融', '科技', '政治', '游戏', '娱乐', '其他'];
 const categories = ref<string[]>([...defaultCategories]);
@@ -261,13 +262,20 @@ const rawMediaUrls = computed<string[]>(() => {
 
 const deleteNews = async (id?: string) => {
   if (!id) return;
-  if (!confirm('确定要删除这条新闻吗？')) return;
+  const ok = await confirmDialog({
+    title: '删除新闻',
+    message: '确定要删除这条新闻吗？此操作无法撤销。',
+    confirmLabel: '删除',
+    danger: true,
+  });
+  if (!ok) return;
   try {
     await axios.delete(`/api/news/${id}`);
     activeNews.value = null;
     fetchNews();
+    showSnackbar('新闻已删除', 'success');
   } catch (err: any) {
-    alert('删除失败');
+    showSnackbar('删除失败', 'error');
   }
 };
 

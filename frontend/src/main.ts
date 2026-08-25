@@ -20,6 +20,8 @@ import '@material/web/switch/switch.js';
 import '@material/web/select/outlined-select.js';
 import '@material/web/select/select-option.js';
 import '@material/web/icon/icon.js';
+import '@material/web/tabs/tabs.js';
+import '@material/web/tabs/primary-tab.js';
 
 const app = createApp(App);
 

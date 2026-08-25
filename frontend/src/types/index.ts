@@ -46,6 +46,14 @@ export interface LogItem {
   createdAt: string;
 }
 
+export interface PromptPreset {
+  id: string;
+  name: string;
+  systemPrompt: string;
+  userPromptTemplate: string;
+  builtIn?: boolean;
+}
+
 export interface ConfigMap {
   x_auth_token?: string;
   x_ct0?: string;

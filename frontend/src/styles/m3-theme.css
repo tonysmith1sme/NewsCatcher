@@ -11,6 +11,11 @@
   --md-sys-color-outline-variant: #c9c5d0;
   --md-sys-color-background: #fef7ff;
   --md-sys-color-on-background: #1d1b20;
+  --md-sys-color-inverse-surface: #322f35;
+  --md-sys-color-inverse-on-surface: #f5eff7;
+  --md-sys-color-error: #b3261e;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-shape-corner-extra-small: 4px;
   --md-sys-shape-corner-medium: 12px;
   --md-sys-shape-corner-large: 16px;
   --md-sys-shape-corner-extra-large: 28px;
@@ -26,7 +31,7 @@
 body {
   margin: 0;
   padding: 0;
-  background-color: #f8f9fa;
+  background-color: var(--md-sys-color-background);
 }
 
 *, *::before, *::after {

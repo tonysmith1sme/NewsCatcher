@@ -2,26 +2,49 @@
   <div class="settings-container">
     <h2>系统配置中心</h2>
 
+    <md-tabs class="settings-tabs" @change="onSettingsTabChange">
+      <md-primary-tab>
+        <span slot="icon" class="material-symbols-outlined">travel_explore</span>
+        抓取
+      </md-primary-tab>
+      <md-primary-tab>
+        <span slot="icon" class="material-symbols-outlined">smart_toy</span>
+        AI
+      </md-primary-tab>
+      <md-primary-tab>
+        <span slot="icon" class="material-symbols-outlined">filter_alt</span>
+        分类
+      </md-primary-tab>
+      <md-primary-tab>
+        <span slot="icon" class="material-symbols-outlined">notifications_active</span>
+        通知
+      </md-primary-tab>
+      <md-primary-tab>
+        <span slot="icon" class="material-symbols-outlined">folder_special</span>
+        存储
+      </md-primary-tab>
+    </md-tabs>
+
     <!-- X Credentials Settings -->
-    <section class="settings-section m3-card">
+    <section v-show="activeTab === 0" class="settings-section m3-card">
       <div class="section-header">
         <span class="material-symbols-outlined section-icon">account_box</span>
         <div>
           <h3>X (Twitter) Cookie 凭证设置</h3>
-          <p class="section-desc">全自动登录抓取推文所需的 Cookie 验证凭证</p>
+          <p class="section-desc">可分别填写 auth_token / ct0，也可把浏览器完整 Cookie 粘贴到任一输入框</p>
         </div>
       </div>
       <div class="form-grid">
         <md-outlined-text-field
-          label="auth_token Cookie 值"
+          label="auth_token 或完整 Cookie"
           :value="form.x_auth_token"
-          @input="form.x_auth_token = ($event.target as HTMLInputElement).value"
+          @input="onCookieFieldInput('x_auth_token', $event)"
           type="password"
         />
         <md-outlined-text-field
-          label="ct0 (CSRF Token) Cookie 值"
+          label="ct0 (可留空，完整 Cookie 已含则可省略)"
           :value="form.x_ct0"
-          @input="form.x_ct0 = ($event.target as HTMLInputElement).value"
+          @input="onCookieFieldInput('x_ct0', $event)"
           type="password"
         />
       </div>
@@ -36,7 +59,7 @@
     </section>
 
     <!-- AI Model Settings -->
-    <section class="settings-section m3-card">
+    <section v-show="activeTab === 1" class="settings-section m3-card">
       <div class="section-header">
         <span class="material-symbols-outlined section-icon">smart_toy</span>
         <div>
@@ -74,8 +97,94 @@
       </div>
     </section>
 
+    <section v-show="activeTab === 1" class="settings-section m3-card">
+      <div class="section-header">
+        <span class="material-symbols-outlined section-icon">psychology</span>
+        <div>
+          <h3>AI 提示词预设</h3>
+          <p class="section-desc">保存多套人格与提示词模板，抓取时使用当前启用的一套。可用变量：{{ promptTokenHint }}</p>
+        </div>
+      </div>
+
+      <div class="preset-toolbar">
+        <md-outlined-select
+          label="当前使用的预设"
+          :value="activePresetId"
+          @change="onActivePresetChange"
+        >
+          <md-select-option v-for="preset in promptPresets" :key="preset.id" :value="preset.id">
+            <div slot="headline">{{ preset.name }}{{ preset.builtIn ? '（内置）' : '' }}</div>
+          </md-select-option>
+        </md-outlined-select>
+        <md-outlined-button @click="openPresetEditor()">
+          <span slot="icon" class="material-symbols-outlined">add</span>
+          新建预设
+        </md-outlined-button>
+      </div>
+
+      <div class="preset-list">
+        <div v-for="preset in promptPresets" :key="preset.id" class="preset-card" :class="{ active: preset.id === activePresetId }">
+          <div class="preset-card-info">
+            <div class="preset-name">
+              {{ preset.name }}
+              <span v-if="preset.builtIn" class="preset-tag">内置</span>
+              <span v-if="preset.id === activePresetId" class="preset-tag current">使用中</span>
+            </div>
+            <p class="preset-preview">{{ preset.systemPrompt || '（无 system 提示词）' }}</p>
+          </div>
+          <div class="preset-card-actions">
+            <md-icon-button title="编辑" @click="openPresetEditor(preset)">
+              <span class="material-symbols-outlined">edit</span>
+            </md-icon-button>
+            <md-icon-button title="复制" @click="duplicatePreset(preset)">
+              <span class="material-symbols-outlined">content_copy</span>
+            </md-icon-button>
+            <md-icon-button v-if="preset.builtIn" title="恢复默认" @click="resetPreset(preset.id)">
+              <span class="material-symbols-outlined">restart_alt</span>
+            </md-icon-button>
+            <md-icon-button v-else title="删除" class="delete-preset-btn" @click="removePreset(preset.id)">
+              <span class="material-symbols-outlined">delete</span>
+            </md-icon-button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <md-dialog :open="showPresetDialog" @closed="showPresetDialog = false" class="preset-dialog">
+      <div slot="headline">{{ editingPresetId ? '编辑提示词预设' : '新建提示词预设' }}</div>
+      <form slot="content" class="preset-form" @submit.prevent="savePresetEditor">
+        <md-outlined-text-field
+          label="预设名称"
+          :value="presetDraft.name"
+          @input="presetDraft.name = ($event.target as HTMLInputElement).value"
+        />
+        <md-outlined-text-field
+          type="textarea"
+          rows="4"
+          label="System 提示词（人格 / 角色）"
+          :value="presetDraft.systemPrompt"
+          @input="presetDraft.systemPrompt = ($event.target as HTMLInputElement).value"
+        />
+        <div class="var-chips">
+          <md-assist-chip v-for="token in promptTokens" :key="token" :label="token" @click="insertPromptToken(token)"></md-assist-chip>
+        </div>
+        <md-outlined-text-field
+          type="textarea"
+          rows="10"
+          label="User 提示词模板"
+          :value="presetDraft.userPromptTemplate"
+          @input="onUserPromptInput"
+        />
+        <p class="preset-hint">请保留 JSON 输出要求，或插入 {{ jsonSchemaToken }}。若未包含该变量，后端仍会自动追加输出契约。</p>
+      </form>
+      <div slot="actions">
+        <md-text-button @click="showPresetDialog = false">取消</md-text-button>
+        <md-filled-button @click="savePresetEditor">保存预设</md-filled-button>
+      </div>
+    </md-dialog>
+
     <!-- Category Management & Retention Settings -->
-    <section class="settings-section m3-card">
+    <section v-show="activeTab === 2" class="settings-section m3-card">
       <div class="section-header">
         <span class="material-symbols-outlined section-icon">filter_alt</span>
         <div>
@@ -100,21 +209,22 @@
       </div>
 
       <div class="checkbox-group">
-        <div v-for="cat in allCategories" :key="cat" class="checkbox-label" @click="toggleCategory(cat)">
-          <input
-            type="checkbox"
+        <div v-for="cat in allCategories" :key="cat" class="checkbox-label">
+          <md-checkbox
             :checked="targetCategories.includes(cat)"
             @change="toggleCategory(cat)"
-            class="native-checkbox"
+            @click.stop
           />
           <span>{{ cat }}</span>
-          <span class="remove-cat-btn" @click.stop.prevent="removeCategory(cat)" title="删除该分类">&times;</span>
+          <md-icon-button class="remove-cat-btn" @click.stop.prevent="removeCategory(cat)" title="删除该分类">
+            <span class="material-symbols-outlined">close</span>
+          </md-icon-button>
         </div>
       </div>
     </section>
 
     <!-- Scheduler Settings -->
-    <section class="settings-section m3-card">
+    <section v-show="activeTab === 0" class="settings-section m3-card">
       <div class="section-header">
         <span class="material-symbols-outlined section-icon">schedule</span>
         <div>
@@ -125,11 +235,9 @@
       <div class="scheduler-controls">
         <label class="switch-label">
           <span>启用定时自动抓取</span>
-          <input
-            type="checkbox"
-            :checked="form.schedule_enabled === 'true'"
-            @change="form.schedule_enabled = form.schedule_enabled === 'true' ? 'false' : 'true'"
-            class="native-switch"
+          <md-switch
+            :selected="form.schedule_enabled === 'true'"
+            @change="form.schedule_enabled = ($event.target as HTMLInputElement & { selected: boolean }).selected ? 'true' : 'false'"
           />
         </label>
 
@@ -156,7 +264,7 @@
     </section>
 
     <!-- Notifications Forwarding Settings -->
-    <section class="settings-section m3-card">
+    <section v-show="activeTab === 3" class="settings-section m3-card">
       <div class="section-header">
         <span class="material-symbols-outlined section-icon">notifications_active</span>
         <div>
@@ -170,11 +278,9 @@
         <div class="sub-block-header">
           <label class="switch-label">
             <span>启用 Telegram Bot 通知</span>
-            <input
-              type="checkbox"
-              :checked="form.notify_tg_enabled === 'true'"
-              @change="form.notify_tg_enabled = form.notify_tg_enabled === 'true' ? 'false' : 'true'"
-              class="native-switch"
+            <md-switch
+              :selected="form.notify_tg_enabled === 'true'"
+              @change="form.notify_tg_enabled = ($event.target as HTMLInputElement & { selected: boolean }).selected ? 'true' : 'false'"
             />
           </label>
           <md-outlined-button v-if="form.notify_tg_enabled === 'true'" @click="testNotify('tg')">发送测试 Telegram 消息</md-outlined-button>
@@ -200,11 +306,9 @@
         <div class="sub-block-header">
           <label class="switch-label">
             <span>启用 QQ 机器人通知 (QQ Open API v2)</span>
-            <input
-              type="checkbox"
-              :checked="form.notify_qq_enabled === 'true'"
-              @change="form.notify_qq_enabled = form.notify_qq_enabled === 'true' ? 'false' : 'true'"
-              class="native-switch"
+            <md-switch
+              :selected="form.notify_qq_enabled === 'true'"
+              @change="form.notify_qq_enabled = ($event.target as HTMLInputElement & { selected: boolean }).selected ? 'true' : 'false'"
             />
           </label>
           <md-outlined-button v-if="form.notify_qq_enabled === 'true'" @click="testNotify('qq')">发送测试 QQ 消息</md-outlined-button>
@@ -242,11 +346,9 @@
         <div class="sub-block-header">
           <label class="switch-label">
             <span>启用自定义 Webhook (Discord / Server酱 / Bark / 企业微信)</span>
-            <input
-              type="checkbox"
-              :checked="form.notify_webhook_enabled === 'true'"
-              @change="form.notify_webhook_enabled = form.notify_webhook_enabled === 'true' ? 'false' : 'true'"
-              class="native-switch"
+            <md-switch
+              :selected="form.notify_webhook_enabled === 'true'"
+              @change="form.notify_webhook_enabled = ($event.target as HTMLInputElement & { selected: boolean }).selected ? 'true' : 'false'"
             />
           </label>
           <md-outlined-button v-if="form.notify_webhook_enabled === 'true'" @click="testNotify('webhook')">发送测试 Webhook</md-outlined-button>
@@ -262,7 +364,7 @@
     </section>
 
     <!-- Storage & Original Content Settings -->
-    <section class="settings-section m3-card">
+    <section v-show="activeTab === 4" class="settings-section m3-card">
       <div class="section-header">
         <span class="material-symbols-outlined section-icon">folder_special</span>
         <div>
@@ -273,21 +375,17 @@
       <div class="scheduler-controls">
         <label class="switch-label">
           <span>保留推文正文原文到 Markdown 报告末尾</span>
-          <input
-            type="checkbox"
-            :checked="form.save_original_text === 'true'"
-            @change="form.save_original_text = form.save_original_text === 'true' ? 'false' : 'true'"
-            class="native-switch"
+          <md-switch
+            :selected="form.save_original_text === 'true'"
+            @change="form.save_original_text = ($event.target as HTMLInputElement & { selected: boolean }).selected ? 'true' : 'false'"
           />
         </label>
 
         <label class="switch-label">
           <span>自动下载推文媒体图片并保存到本地存储目录</span>
-          <input
-            type="checkbox"
-            :checked="form.save_original_images === 'true'"
-            @change="form.save_original_images = form.save_original_images === 'true' ? 'false' : 'true'"
-            class="native-switch"
+          <md-switch
+            :selected="form.save_original_images === 'true'"
+            @change="form.save_original_images = ($event.target as HTMLInputElement & { selected: boolean }).selected ? 'true' : 'false'"
           />
         </label>
 
@@ -315,6 +413,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import { showSnackbar, confirmDialog } from '../composables/useFeedback';
+import { PromptPreset } from '../types';
+
+const activeTab = ref(0);
+
+const onSettingsTabChange = (event: Event) => {
+  const tabs = event.target as HTMLElement & { activeTabIndex?: number };
+  activeTab.value = Number(tabs.activeTabIndex || 0);
+};
 
 const defaultCategories = ['AI', '金融', '科技', '政治', '游戏', '娱乐', '汽车', '体育', '其他'];
 const allCategories = ref<string[]>([...defaultCategories]);
@@ -352,6 +459,149 @@ const xTestSuccess = ref(false);
 const testingAI = ref(false);
 const aiTestResult = ref('');
 const aiTestSuccess = ref(false);
+
+const promptTokens = ['{{authorName}}', '{{authorUsername}}', '{{createdAt}}', '{{url}}', '{{text}}', '{{categoryHint}}', '{{jsonSchema}}'];
+const promptTokenHint = promptTokens.join(' ');
+const jsonSchemaToken = '{{jsonSchema}}';
+const promptPresets = ref<PromptPreset[]>([]);
+const activePresetId = ref('');
+const showPresetDialog = ref(false);
+const editingPresetId = ref('');
+const presetDraft = ref({
+  name: '',
+  systemPrompt: '',
+  userPromptTemplate: '',
+});
+let lastUserPromptField: HTMLInputElement | null = null;
+
+const fetchPromptPresets = async () => {
+  try {
+    const res = await axios.get('/api/prompt-presets');
+    promptPresets.value = res.data.data.presets || [];
+    activePresetId.value = res.data.data.activeId || '';
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const onActivePresetChange = async (event: Event) => {
+  const id = (event.target as HTMLSelectElement).value;
+  if (!id || id === activePresetId.value) return;
+  try {
+    await axios.post(`/api/prompt-presets/${id}/activate`);
+    activePresetId.value = id;
+    showSnackbar('已切换当前提示词预设', 'success');
+  } catch (err: any) {
+    showSnackbar(err.response?.data?.message || '切换预设失败', 'error');
+  }
+};
+
+const openPresetEditor = (preset?: PromptPreset) => {
+  if (preset) {
+    editingPresetId.value = preset.id;
+    presetDraft.value = {
+      name: preset.name,
+      systemPrompt: preset.systemPrompt,
+      userPromptTemplate: preset.userPromptTemplate,
+    };
+  } else {
+    editingPresetId.value = '';
+    const builtin = promptPresets.value.find((p) => p.builtIn);
+    presetDraft.value = {
+      name: '',
+      systemPrompt: builtin?.systemPrompt || '你是一个严格输出 JSON 格式的新闻提炼分析助手。',
+      userPromptTemplate: builtin?.userPromptTemplate || '',
+    };
+  }
+  showPresetDialog.value = true;
+};
+
+const onUserPromptInput = (event: Event) => {
+  const el = event.target as HTMLInputElement;
+  lastUserPromptField = el;
+  presetDraft.value.userPromptTemplate = el.value;
+};
+
+const insertPromptToken = (token: string) => {
+  const current = presetDraft.value.userPromptTemplate || '';
+  const el = lastUserPromptField;
+  if (el && typeof el.selectionStart === 'number') {
+    const start = el.selectionStart;
+    const end = el.selectionEnd ?? start;
+    presetDraft.value.userPromptTemplate = current.slice(0, start) + token + current.slice(end);
+  } else {
+    presetDraft.value.userPromptTemplate = current + token;
+  }
+};
+
+const savePresetEditor = async () => {
+  const name = presetDraft.value.name.trim();
+  if (!name) {
+    showSnackbar('请填写预设名称', 'error');
+    return;
+  }
+  try {
+    if (editingPresetId.value) {
+      await axios.put(`/api/prompt-presets/${editingPresetId.value}`, presetDraft.value);
+      showSnackbar('预设已更新', 'success');
+    } else {
+      await axios.post('/api/prompt-presets', presetDraft.value);
+      showSnackbar('预设已创建', 'success');
+    }
+    showPresetDialog.value = false;
+    await fetchPromptPresets();
+  } catch (err: any) {
+    showSnackbar(err.response?.data?.message || '保存预设失败', 'error');
+  }
+};
+
+const duplicatePreset = async (preset: PromptPreset) => {
+  try {
+    await axios.post('/api/prompt-presets', {
+      name: `${preset.name} 副本`,
+      systemPrompt: preset.systemPrompt,
+      userPromptTemplate: preset.userPromptTemplate,
+    });
+    await fetchPromptPresets();
+    showSnackbar('已复制预设', 'success');
+  } catch (err: any) {
+    showSnackbar(err.response?.data?.message || '复制失败', 'error');
+  }
+};
+
+const resetPreset = async (id: string) => {
+  const ok = await confirmDialog({
+    title: '恢复默认提示词',
+    message: '将把内置「专业主编」恢复为系统默认文案，已做的修改会丢失。',
+    confirmLabel: '恢复默认',
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    await axios.post(`/api/prompt-presets/${id}/reset`);
+    await fetchPromptPresets();
+    showSnackbar('已恢复默认提示词', 'success');
+  } catch (err: any) {
+    showSnackbar(err.response?.data?.message || '恢复失败', 'error');
+  }
+};
+
+const removePreset = async (id: string) => {
+  const ok = await confirmDialog({
+    title: '删除预设',
+    message: '确定删除该提示词预设吗？此操作无法撤销。',
+    confirmLabel: '删除',
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    await axios.delete(`/api/prompt-presets/${id}`);
+    await fetchPromptPresets();
+    showSnackbar('预设已删除', 'success');
+  } catch (err: any) {
+    showSnackbar(err.response?.data?.message || '删除失败', 'error');
+  }
+};
 
 const fetchConfig = async () => {
   try {
@@ -392,7 +642,7 @@ const addCategory = () => {
   const val = newCategoryName.value.trim();
   if (!val) return;
   if (allCategories.value.includes(val)) {
-    alert('该分类已存在');
+    showSnackbar('该分类已存在', 'error');
     return;
   }
   allCategories.value.push(val);
@@ -402,7 +652,7 @@ const addCategory = () => {
 
 const removeCategory = (cat: string) => {
   if (allCategories.value.length <= 1) {
-    alert('最少需保留一个分类');
+    showSnackbar('最少需保留一个分类', 'error');
     return;
   }
   const idx = allCategories.value.indexOf(cat);
@@ -412,6 +662,33 @@ const removeCategory = (cat: string) => {
   const targetIdx = targetCategories.value.indexOf(cat);
   if (targetIdx > -1) {
     targetCategories.value.splice(targetIdx, 1);
+  }
+};
+
+const extractCookieValue = (raw: string, key: string): string => {
+  const text = (raw || '').trim().replace(/^["']+|["']+$/g, '');
+  if (!text) return '';
+  for (const part of text.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq <= 0) continue;
+    if (part.slice(0, eq).trim() === key) {
+      return part.slice(eq + 1).trim().replace(/^["']+|["']+$/g, '');
+    }
+  }
+  return '';
+};
+
+const onCookieFieldInput = (field: 'x_auth_token' | 'x_ct0', event: Event) => {
+  const value = (event.target as HTMLInputElement).value || '';
+  form.value[field] = value;
+  const auth = extractCookieValue(value, 'auth_token');
+  const ct0 = extractCookieValue(value, 'ct0');
+  if (auth && field === 'x_auth_token') {
+    if (!form.value.x_ct0 && ct0) form.value.x_ct0 = ct0;
+  }
+  if (ct0 && field === 'x_ct0' && value.includes(';')) {
+    form.value.x_ct0 = ct0;
+    if (!form.value.x_auth_token && auth) form.value.x_auth_token = value;
   }
 };
 
@@ -427,7 +704,7 @@ const testTwitterCookie = async () => {
     xTestResult.value = res.data.message;
   } catch (err: any) {
     xTestSuccess.value = false;
-    xTestResult.value = '测试失败';
+    xTestResult.value = err.response?.data?.message || err.message || '测试失败';
   } finally {
     testingX.value = false;
   }
@@ -454,9 +731,9 @@ const testNotify = async (type: string) => {
   await saveAllConfigs(false);
   try {
     const res = await axios.post('/api/test/notification', { type });
-    alert(res.data.message || '测试指令发送成功');
+    showSnackbar(res.data.message || '测试指令发送成功', 'success');
   } catch (err: any) {
-    alert(`测试通知发送失败: ${err.response?.data?.message || err.message}`);
+    showSnackbar(`测试通知发送失败: ${err.response?.data?.message || err.message}`, 'error');
   }
 };
 
@@ -469,15 +746,16 @@ const saveAllConfigs = async (notify = true) => {
     };
     await axios.post('/api/config', payload);
     if (notify) {
-      alert('所有系统设置已成功保存！');
+      showSnackbar('所有系统设置已成功保存', 'success');
     }
   } catch (err: any) {
-    alert(`保存失败: ${err.message}`);
+    showSnackbar(`保存失败: ${err.message}`, 'error');
   }
 };
 
 onMounted(() => {
   fetchConfig();
+  fetchPromptPresets();
 });
 </script>
 
@@ -487,6 +765,12 @@ onMounted(() => {
   flex-direction: column;
   gap: 20px;
   max-width: 900px;
+}
+
+.settings-tabs {
+  width: 100%;
+  margin-bottom: 4px;
+  --md-primary-tab-container-color: transparent;
 }
 
 .settings-section {
@@ -543,13 +827,6 @@ onMounted(() => {
   gap: 16px;
 }
 
-.native-checkbox {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  accent-color: var(--md-sys-color-primary);
-}
-
 .add-category-bar {
   display: flex;
   align-items: center;
@@ -563,22 +840,12 @@ onMounted(() => {
 }
 
 .remove-cat-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background-color: var(--md-sys-color-surface-variant);
-  color: var(--md-sys-color-on-surface-variant);
-  font-size: 12px;
-  margin-left: 4px;
-  cursor: pointer;
-}
-
-.remove-cat-btn:hover {
-  background-color: #c62828;
-  color: white;
+  --md-icon-button-icon-size: 16px;
+  --md-icon-button-state-layer-height: 28px;
+  --md-icon-button-state-layer-width: 28px;
+  width: 28px;
+  height: 28px;
+  margin-left: 2px;
 }
 
 .checkbox-label {
@@ -608,11 +875,12 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-.native-switch {
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-  accent-color: var(--md-sys-color-primary);
+.switch-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14px;
 }
 
 .notify-sub-block {
@@ -631,5 +899,101 @@ onMounted(() => {
   border: 0;
   border-top: 1px solid var(--md-sys-color-outline-variant);
   margin: 12px 0;
+}
+
+.preset-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.preset-toolbar md-outlined-select {
+  flex: 1;
+}
+
+.preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.preset-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-medium);
+  background: var(--md-sys-color-surface);
+}
+
+.preset-card.active {
+  border-color: var(--md-sys-color-primary);
+  background: var(--md-sys-color-primary-container);
+}
+
+.preset-name {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preset-tag {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--md-sys-color-surface-variant);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.preset-tag.current {
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+.preset-preview {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--md-sys-color-on-surface-variant);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.preset-card-actions {
+  display: flex;
+  align-items: center;
+}
+
+.delete-preset-btn {
+  --md-icon-button-icon-color: #b3261e;
+}
+
+.preset-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: min(640px, 80vw);
+  padding: 8px 0;
+}
+
+.var-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.preset-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.preset-dialog {
+  max-width: 760px;
 }
 </style>

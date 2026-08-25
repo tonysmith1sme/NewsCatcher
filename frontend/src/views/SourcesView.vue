@@ -25,16 +25,14 @@
         <div class="source-actions">
           <label class="switch-label">
             <span>{{ src.enabled ? '已启用' : '已禁用' }}</span>
-            <input
-              type="checkbox"
-              :checked="src.enabled"
+            <md-switch
+              :selected="src.enabled"
               @change="toggleSource(src.id)"
-              class="native-switch"
             />
           </label>
-          <button class="icon-btn delete-btn" @click="deleteSource(src.id)" title="删除源">
+          <md-icon-button class="delete-btn" @click="deleteSource(src.id)" title="删除源">
             <span class="material-symbols-outlined">delete</span>
-          </button>
+          </md-icon-button>
         </div>
       </div>
     </div>
@@ -86,6 +84,7 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { SourceItem } from '../types';
+import { showSnackbar, confirmDialog } from '../composables/useFeedback';
 
 const sources = ref<SourceItem[]>([]);
 const showAddDialog = ref(false);
@@ -117,23 +116,30 @@ const toggleSource = async (id: string) => {
     await axios.patch(`/api/sources/${id}/toggle`);
     fetchSources();
   } catch (err) {
-    alert('切换状态失败');
+    showSnackbar('切换状态失败', 'error');
   }
 };
 
 const deleteSource = async (id: string) => {
-  if (!confirm('确定删除该抓取源吗？')) return;
+  const ok = await confirmDialog({
+    title: '删除抓取源',
+    message: '确定删除该抓取源吗？此操作无法撤销。',
+    confirmLabel: '删除',
+    danger: true,
+  });
+  if (!ok) return;
   try {
     await axios.delete(`/api/sources/${id}`);
     fetchSources();
+    showSnackbar('抓取源已删除', 'success');
   } catch (err) {
-    alert('删除失败');
+    showSnackbar('删除失败', 'error');
   }
 };
 
 const saveSource = async () => {
   if (!newSource.value.name || !newSource.value.query) {
-    alert('请填写完整信息');
+    showSnackbar('请填写完整信息', 'error');
     return;
   }
   try {
@@ -141,8 +147,9 @@ const saveSource = async () => {
     showAddDialog.value = false;
     newSource.value = { name: '', type: 'search', query: '' };
     fetchSources();
+    showSnackbar('抓取源已添加', 'success');
   } catch (err: any) {
-    alert(`添加失败: ${err.response?.data?.message || err.message}`);
+    showSnackbar(`添加失败: ${err.response?.data?.message || err.message}`, 'error');
   }
 };
 
@@ -234,32 +241,8 @@ onMounted(() => {
   font-size: 13px;
 }
 
-.native-switch {
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-  accent-color: var(--md-sys-color-primary);
-}
-
-.icon-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--md-sys-color-on-surface-variant);
-  transition: background-color 0.2s ease;
-}
-
-.icon-btn:hover {
-  background-color: rgba(0, 0, 0, 0.06);
-}
-
-.icon-btn.delete-btn {
-  color: #c62828;
+.delete-btn {
+  --md-icon-button-icon-color: #c62828;
 }
 
 .add-form {

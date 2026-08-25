@@ -38,50 +38,39 @@
 
       <!-- Main Content View -->
       <main class="m3-content-area">
-        <!-- Execution Alert Toast -->
-        <div v-if="taskMessage" class="m3-toast" :class="taskStatus">
-          <span class="material-symbols-outlined">info</span>
-          <span>{{ taskMessage }}</span>
-        </div>
-
         <router-view />
       </main>
     </div>
+
+    <FeedbackHost />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
 import axios from 'axios';
+import FeedbackHost from './components/FeedbackHost.vue';
+import { showSnackbar } from './composables/useFeedback';
 
 const isRunning = ref(false);
-const taskMessage = ref('');
-const taskStatus = ref<'success' | 'error'>('success');
 
 const triggerFetchTask = async () => {
   if (isRunning.value) return;
   isRunning.value = true;
-  taskMessage.value = '正在连线 X 接口并调用 AI 总结过滤中，请稍候...';
-  taskStatus.value = 'success';
+  showSnackbar('正在连线 X 接口并调用 AI 总结过滤中，请稍候...', 'info', 8000);
 
   try {
     const res = await axios.post('/api/task/run');
     if (res.data.success) {
-      taskMessage.value = res.data.logMessage || '手动抓取与 AI 提炼任务执行完毕！';
-      // Trigger custom window event so child views can refresh
+      showSnackbar(res.data.logMessage || '手动抓取与 AI 提炼任务执行完毕！', 'success', 6000);
       window.dispatchEvent(new CustomEvent('refresh-news'));
     } else {
-      taskMessage.value = `执行失败: ${res.data.message}`;
-      taskStatus.value = 'error';
+      showSnackbar(`执行失败: ${res.data.message}`, 'error', 6000);
     }
   } catch (err: any) {
-    taskMessage.value = `抓取任务异常: ${err.response?.data?.message || err.message}`;
-    taskStatus.value = 'error';
+    showSnackbar(`抓取任务异常: ${err.response?.data?.message || err.message}`, 'error', 6000);
   } finally {
     isRunning.value = false;
-    setTimeout(() => {
-      taskMessage.value = '';
-    }, 6000);
   }
 };
 </script>
@@ -173,26 +162,5 @@ const triggerFetchTask = async () => {
   overflow-y: auto;
   padding: 24px;
   position: relative;
-}
-
-.m3-toast {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 20px;
-  border-radius: var(--md-sys-shape-corner-medium);
-  margin-bottom: 16px;
-  font-size: 14px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.m3-toast.success {
-  background-color: #e8f5e9;
-  color: #1b5e20;
-}
-
-.m3-toast.error {
-  background-color: #ffebee;
-  color: #c62828;
 }
 </style>
