@@ -68,8 +68,16 @@ md-dialog {
   --md-dialog-container-padding: 24px;
 }
 
+md-dialog [slot="headline"] {
+  padding: 24px 24px 0;
+}
+
 md-dialog [slot="content"] {
-  padding: 16px 4px 8px 4px;
+  padding: 20px 24px 8px;
+}
+
+md-dialog [slot="actions"] {
+  padding: 16px 24px 24px;
 }
 
 /* Markdown Custom M3 Styling */

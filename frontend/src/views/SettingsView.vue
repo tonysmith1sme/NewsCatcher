@@ -1096,8 +1096,9 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  min-width: min(640px, 80vw);
-  padding: 8px 0;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .var-chips {
@@ -1113,6 +1114,7 @@ onMounted(() => {
 }
 
 .preset-dialog {
-  max-width: 760px;
+  max-width: min(720px, calc(100vw - 48px));
+  width: min(720px, calc(100vw - 48px));
 }
 </style>
