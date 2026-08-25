@@ -5,7 +5,7 @@ import { NotificationService } from './notification';
 import { StorageService } from './storage';
 
 export class NewsProcessorService {
-  public static async runFetchTask(): Promise<{ fetched: number; saved: number; logMessage: string }> {
+  public static async runFetchTask(): Promise<{ id: string; fetched: number; saved: number; logMessage: string }> {
     const log = await prisma.executionLog.create({
       data: {
         status: 'IN_PROGRESS',
@@ -24,7 +24,7 @@ export class NewsProcessorService {
           where: { id: log.id },
           data: { status: 'SUCCESS', message: msg },
         });
-        return { fetched: 0, saved: 0, logMessage: msg };
+        return { id: log.id, fetched: 0, saved: 0, logMessage: msg };
       }
 
       // 2. Get target category filter preference
@@ -139,7 +139,7 @@ export class NewsProcessorService {
         },
       });
 
-      return { fetched: totalFetched, saved: totalSaved, logMessage: msg };
+      return { id: log.id, fetched: totalFetched, saved: totalSaved, logMessage: msg };
     } catch (err: any) {
       const errorMsg = `抓取任务异常中断: ${err.message}`;
       await prisma.executionLog.update({

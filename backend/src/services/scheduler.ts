@@ -62,7 +62,7 @@ export class SchedulerService {
     });
   }
 
-  public static async triggerManualRun(): Promise<{ fetched: number; saved: number; logMessage: string }> {
+  public static async triggerManualRun(): Promise<{ id: string; fetched: number; saved: number; logMessage: string }> {
     if (this.isRunningTask) {
       throw new Error('当前已有抓取任务在后台运行中，请稍后再试');
     }
