@@ -6,6 +6,14 @@ import { prisma, getSystemConfig, setSystemConfig } from './services/config';
 import { TwitterService } from './services/twitter';
 import { AIService } from './services/ai';
 import { SchedulerService } from './services/scheduler';
+import {
+  activatePromptPreset,
+  createPromptPreset,
+  deletePromptPreset,
+  listPromptPresets,
+  resetPromptPreset,
+  updatePromptPreset,
+} from './services/promptPresets';
 
 const app = express();
 app.use(cors());
@@ -96,7 +104,7 @@ app.get('/api/config', async (req: Request, res: Response) => {
       'notify_tg_enabled', 'notify_tg_bot_token', 'notify_tg_chat_id',
       'notify_qq_enabled', 'notify_qq_app_id', 'notify_qq_client_secret', 'notify_qq_channel_id', 'notify_qq_openid',
       'notify_webhook_enabled', 'notify_webhook_url',
-      'save_original_text', 'save_original_images', 'storage_media_dir'
+      'save_original_text', 'save_original_images', 'storage_media_dir',
     ];
     const configMap: Record<string, string> = {};
     for (const k of keys) {
@@ -111,7 +119,9 @@ app.get('/api/config', async (req: Request, res: Response) => {
 app.post('/api/config', async (req: Request, res: Response) => {
   try {
     const configs: Record<string, string> = req.body;
+    const blocked = new Set(['ai_prompt_presets', 'ai_prompt_active_id']);
     for (const [k, v] of Object.entries(configs)) {
+      if (blocked.has(k)) continue;
       await setSystemConfig(k, String(v));
     }
     // Reload scheduler in case schedule settings changed
@@ -119,6 +129,74 @@ app.post('/api/config', async (req: Request, res: Response) => {
     res.json({ success: true, message: '系统配置更新成功' });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// --- Prompt Presets API ---
+app.get('/api/prompt-presets', async (_req: Request, res: Response) => {
+  try {
+    const data = await listPromptPresets();
+    res.json({ success: true, data });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/prompt-presets', async (req: Request, res: Response) => {
+  try {
+    const { name, systemPrompt, userPromptTemplate } = req.body || {};
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ success: false, message: '预设名称不能为空' });
+    }
+    const preset = await createPromptPreset({
+      name: String(name),
+      systemPrompt: String(systemPrompt || ''),
+      userPromptTemplate: String(userPromptTemplate || ''),
+    });
+    res.json({ success: true, data: preset });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.put('/api/prompt-presets/:id', async (req: Request, res: Response) => {
+  try {
+    const { name, systemPrompt, userPromptTemplate } = req.body || {};
+    const preset = await updatePromptPreset(req.params.id, { name, systemPrompt, userPromptTemplate });
+    res.json({ success: true, data: preset });
+  } catch (err: any) {
+    const code = err.message === '预设不存在' ? 404 : 400;
+    res.status(code).json({ success: false, message: err.message });
+  }
+});
+
+app.delete('/api/prompt-presets/:id', async (req: Request, res: Response) => {
+  try {
+    await deletePromptPreset(req.params.id);
+    res.json({ success: true, message: '预设已删除' });
+  } catch (err: any) {
+    const code = err.message === '预设不存在' ? 404 : 400;
+    res.status(code).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/prompt-presets/:id/activate', async (req: Request, res: Response) => {
+  try {
+    const activeId = await activatePromptPreset(req.params.id);
+    res.json({ success: true, data: { activeId } });
+  } catch (err: any) {
+    const code = err.message === '预设不存在' ? 404 : 400;
+    res.status(code).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/prompt-presets/:id/reset', async (req: Request, res: Response) => {
+  try {
+    const preset = await resetPromptPreset(req.params.id);
+    res.json({ success: true, data: preset });
+  } catch (err: any) {
+    const code = err.message === '预设不存在' ? 404 : 400;
+    res.status(code).json({ success: false, message: err.message });
   }
 });
 

@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { getSystemConfig } from './config';
 import { TweetItem } from './twitter';
+import { JSON_SCHEMA_TEXT, buildUserPrompt, getActivePreset } from './promptPresets';
 
 export interface AISummaryResult {
   title: string;
@@ -47,36 +48,30 @@ export class AIService {
     const client = await this.getClient();
     const model = await getSystemConfig('ai_model', 'gpt-3.5-turbo');
 
-    const categoryHint = allowedCategories.length > 0 
-      ? `可选优先分类包含：${allowedCategories.join('、')}。如果属于其中一种请精确归类为该分类；如果不属于，可以归类为其他合适的简短分类名称。` 
+    const categoryHint = allowedCategories.length > 0
+      ? `可选优先分类包含：${allowedCategories.join('、')}。如果属于其中一种请精确归类为该分类；如果不属于，可以归类为其他合适的简短分类名称。`
       : '例如：金融、AI、科技、政治、娱乐、游戏、汽车、体育、其他';
 
-    const prompt = `你是一个专业的新闻主编与信息提炼分析专家。请仔细阅读以下抓取自 X (Twitter) 的原始推文内容，并进行分析总结。
-
-推文发布者: ${tweet.authorName} (@${tweet.authorUsername})
-发布时间: ${tweet.createdAt.toISOString()}
-原推链接: ${tweet.url}
-推文正文:
-"""
-${tweet.text}
-"""
-
-请按以下 JSON 格式输出分析结果（不要输出 markdown 代码块，只输出纯 JSON）：
-{
-  "isNews": true/false (判定该推文是否包含有效的新闻/资讯/深度信息，若仅为日常闲聊、广告骚扰则为 false),
-  "title": "简短精炼的新闻标题（20字以内）",
-  "summary": "1-2句精炼的新闻摘要概括",
-  "markdownContent": "完整的新闻 Markdown 报告。格式包含：## 新闻背景、## 核心要点（列表）、## 原推评论与影响。包含原推链接 [查看原推](${tweet.url})",
-  "category": "主要分类，${categoryHint}",
-  "importance": 1-5 (重要度评分，数字 1-5，5表示重大新闻)
-}`;
+    const preset = await getActivePreset();
+    const promptVars = {
+      authorName: tweet.authorName,
+      authorUsername: tweet.authorUsername,
+      createdAt: tweet.createdAt.toISOString(),
+      url: tweet.url,
+      text: tweet.text,
+      categoryHint,
+      jsonSchema: '',
+    };
+    promptVars.jsonSchema = JSON_SCHEMA_TEXT.replace(/\{\{url\}\}/g, tweet.url).replace(/\{\{categoryHint\}\}/g, categoryHint);
+    const userPrompt = buildUserPrompt(preset.userPromptTemplate, promptVars);
+    const systemPrompt = preset.systemPrompt.trim() || '你是一个严格输出 JSON 格式的新闻提炼分析助手。';
 
     try {
       const response = await client.chat.completions.create({
         model: model,
         messages: [
-          { role: 'system', content: '你是一个严格输出 JSON 格式的新闻提炼分析助手。' },
-          { role: 'user', content: prompt }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
         ],
         temperature: 0.3,
       });
