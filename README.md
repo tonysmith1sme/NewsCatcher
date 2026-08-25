@@ -36,7 +36,7 @@ NewsCatcher 是一款全自动的 Twitter (X) 新闻与资讯抓取提炼系统�
 
 ### 2. 克隆项目与安装依赖
 ```bash
-git clone <repository-url>
+git clone https://github.com/tonysmith1sme/NewsCatcher
 cd NewsCatcher
 
 # 安装根目录依赖（包含 concurrently 自动化工具）
