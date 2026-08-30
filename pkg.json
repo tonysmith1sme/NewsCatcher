@@ -1,0 +1,12 @@
+{
+  "pkg": {
+    "scripts": [
+      "backend/dist/**/*.js"
+    ],
+    "assets": [
+      "frontend/dist/**/*",
+      "backend/prisma/template.db",
+      "backend/node_modules/.prisma/client/**/*"
+    ]
+  }
+}
