@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
 import { getSystemConfig } from './config';
+import { getMediaDir } from '../runtime';
 
 export class StorageService {
   public static async getStorageDir(): Promise<string> {
@@ -19,7 +20,7 @@ export class StorageService {
       }
     }
 
-    const defaultDir = path.join(process.cwd(), 'media');
+    const defaultDir = getMediaDir();
     if (!fs.existsSync(defaultDir)) {
       fs.mkdirSync(defaultDir, { recursive: true });
     }

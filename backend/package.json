@@ -6,8 +6,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "prisma:generate": "prisma generate",
-    "prisma:push": "prisma db push"
+    "prisma:generate": "DATABASE_URL=file:./dev.db prisma generate",
+    "prisma:push": "DATABASE_URL=file:./dev.db prisma db push"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",
