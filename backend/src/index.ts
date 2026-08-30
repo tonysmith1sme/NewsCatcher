@@ -57,7 +57,7 @@ app.listen(PORT, HOST, async () => {
   const displayHost = HOST === '0.0.0.0' ? '127.0.0.1' : HOST;
   console.log(`[NewsCatcher] 服务已启动: http://${displayHost}:${PORT}`);
   if (isPackaged()) {
-    console.log(`[NewsCatcher] 数据目录: ${getAppHome()} （可用 NEWSCATCHER_HOME 覆盖）`);
+    console.log(`[NewsCatcher] 数据目录: ${getAppHome()} （与程序同目录，可用 NEWSCATCHER_HOME 覆盖）`);
   }
   await SchedulerService.initScheduler();
 });

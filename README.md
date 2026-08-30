@@ -31,25 +31,41 @@ NewsCatcher 是一款全自动的 Twitter (X) 新闻与资讯抓取提炼系统�
 
 ## 下载即用（普通用户）
 
-从 [GitHub Releases](https://github.com/tonysmith1sme/NewsCatcher/releases) 下载对应架构的二进制文件：
+从 [GitHub Releases](https://github.com/tonysmith1sme/NewsCatcher/releases) 下载对应系统的压缩包，解压后即可运行：
 
-| 文件 | 系统 |
+| 压缩包 | 系统 |
 | --- | --- |
-| `NewsCatcher-linux-x64` | Linux x86_64（需 glibc，如 Ubuntu/Debian） |
-| `NewsCatcher-linux-arm64` | Linux ARM64 |
-| `NewsCatcher-macos-x64` | macOS Intel |
-| `NewsCatcher-macos-arm64` | macOS Apple Silicon |
+| `NewsCatcher-linux-x64.zip` | Linux x86_64（需 glibc，如 Ubuntu/Debian） |
+| `NewsCatcher-linux-arm64.zip` | Linux ARM64 |
+| `NewsCatcher-macos-x64.zip` | macOS Intel |
+| `NewsCatcher-macos-arm64.zip` | macOS Apple Silicon |
+| `NewsCatcher-windows-x64.zip` | Windows x64 |
 
-```bash
-chmod +x NewsCatcher-linux-x64
-./NewsCatcher-linux-x64
+解压后目录内已包含程序、空数据库 `data.db` 和 `media/` 图片目录：
+
+```text
+NewsCatcher-linux-x64/
+  NewsCatcher          # Windows 为 NewsCatcher.exe
+  data.db
+  media/
+  README.txt
 ```
 
-启动后终端会打印 `http://127.0.0.1:4000`，用浏览器打开即可。数据与图片默认写在 `~/.newscatcher/`（可用环境变量 `NEWSCATCHER_HOME` 更改）。端口与监听地址可用 `PORT`、`HOST` 覆盖。
+Linux / macOS：
 
-macOS 若提示未知开发者，可执行 `xattr -cr ./NewsCatcher-macos-arm64` 后再打开。
+```bash
+cd NewsCatcher-linux-x64
+chmod +x NewsCatcher
+./NewsCatcher
+```
 
-打 tag `v*` 并 push 后，GitHub Actions 会自动编译上述四个文件并发布到 Release。
+Windows：解压后双击 `NewsCatcher.exe`，或在 PowerShell 中执行 `.\NewsCatcher.exe`。
+
+启动后终端会打印 `http://127.0.0.1:4000`，用浏览器打开即可。数据库、图片和运行文件都在同一目录，请整包一起移动。端口可用 `PORT`、`HOST` 覆盖。
+
+macOS 若提示未知开发者，可执行 `xattr -cr ./NewsCatcher` 后再打开。
+
+打 tag `v*` 并 push 后，GitHub Actions 会自动编译上述压缩包并发布到 Release。
 
 ---
 

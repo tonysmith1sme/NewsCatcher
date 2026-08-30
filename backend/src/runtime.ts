@@ -1,5 +1,4 @@
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 
 let prepared = false;
@@ -13,7 +12,7 @@ export function getAppHome(): string {
     return path.resolve(process.env.NEWSCATCHER_HOME);
   }
   if (isPackaged()) {
-    return path.join(os.homedir(), '.newscatcher');
+    return path.dirname(process.execPath);
   }
   return process.cwd();
 }
@@ -38,6 +37,8 @@ export function getFrontendDir(): string {
 
 function queryEngineFileName(): string {
   const { platform, arch } = process;
+  if (platform === 'win32' && arch === 'arm64') return 'query_engine-windows-arm64.dll.node';
+  if (platform === 'win32') return 'query_engine-windows.dll.node';
   if (platform === 'darwin' && arch === 'arm64') return 'libquery_engine-darwin-arm64.dylib.node';
   if (platform === 'darwin') return 'libquery_engine-darwin.dylib.node';
   if (platform === 'linux' && arch === 'arm64') return 'libquery_engine-linux-arm64-openssl-3.0.x.so.node';

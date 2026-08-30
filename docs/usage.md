@@ -2,7 +2,7 @@
 
 本文档将详细指导您如何配置和使用 NewsCatcher 机器人系统。
 
-不想自己装 Node 时，可从 GitHub Releases 下载对应系统的二进制，赋权后直接运行，浏览器打开终端打印的 `http://127.0.0.1:4000`。数据默认在 `~/.newscatcher/`。详见仓库 README「下载即用」。
+不想自己装 Node 时，可从 GitHub Releases 下载对应系统的压缩包（Linux / macOS 的 x64 与 ARM64，以及 Windows x64），解压后运行同目录中的程序。数据库 `data.db` 与 `media/` 已放在包内，和可执行文件在一起。浏览器打开终端打印的 `http://127.0.0.1:4000`。详见仓库 README「下载即用」。
 
 系统设置页按 Material Design 3 分为五个 Tab：**抓取**、**AI**、**分类**、**通知**、**存储**。保存、测试与删除等反馈均使用页面底部 Snackbar 或确认 Dialog，不会弹出浏览器原生弹窗。
 
