@@ -29,7 +29,31 @@ NewsCatcher 是一款全自动的 Twitter (X) 新闻与资讯抓取提炼系统�
 
 ---
 
-## 快速开始
+## 下载即用（普通用户）
+
+从 [GitHub Releases](https://github.com/tonysmith1sme/NewsCatcher/releases) 下载对应架构的二进制文件：
+
+| 文件 | 系统 |
+| --- | --- |
+| `NewsCatcher-linux-x64` | Linux x86_64（需 glibc，如 Ubuntu/Debian） |
+| `NewsCatcher-linux-arm64` | Linux ARM64 |
+| `NewsCatcher-macos-x64` | macOS Intel |
+| `NewsCatcher-macos-arm64` | macOS Apple Silicon |
+
+```bash
+chmod +x NewsCatcher-linux-x64
+./NewsCatcher-linux-x64
+```
+
+启动后终端会打印 `http://127.0.0.1:4000`，用浏览器打开即可。数据与图片默认写在 `~/.newscatcher/`（可用环境变量 `NEWSCATCHER_HOME` 更改）。端口与监听地址可用 `PORT`、`HOST` 覆盖。
+
+macOS 若提示未知开发者，可执行 `xattr -cr ./NewsCatcher-macos-arm64` 后再打开。
+
+打 tag `v*` 并 push 后，GitHub Actions 会自动编译上述四个文件并发布到 Release。
+
+---
+
+## 开发者快速开始
 
 ### 1. 环境准备
 确保本机已安装 Node.js (>= 18.x) 与 npm。
@@ -59,9 +83,21 @@ npm --prefix backend run prisma:push
 npm run dev
 ```
 
-- 前端访问地址：`http://localhost:4000` (或 `http://<IP>:4000`)
-- 后端 API 地址：`http://localhost:4001` (或 `http://<IP>:4001`)
-- 开放 REST：`http://localhost:4001/api/v1`（鉴权与资源说明见 [docs/api.md](docs/api.md)、[docs/openapi.yaml](docs/openapi.yaml)）
+- 开发前端：`http://localhost:4000`（Vite，代理到后端）
+- 开发后端：`http://localhost:4001`
+- 生产 / 二进制：同一端口（默认 `4000`）同时提供页面与 `/api/v1`
+- REST 说明：[docs/api.md](docs/api.md)、[docs/openapi.yaml](docs/openapi.yaml)
+
+本地打二进制：
+
+```bash
+npm install
+npm --prefix backend install
+npm --prefix frontend install
+npm run dist
+```
+
+产物在 `release/`。
 
 ---
 
