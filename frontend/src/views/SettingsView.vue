@@ -418,6 +418,25 @@
         <md-outlined-button @click="copyApiKey">复制密钥</md-outlined-button>
         <md-outlined-button @click="rotateApiKey">轮换密钥</md-outlined-button>
       </div>
+
+      <hr class="section-divider" />
+
+      <div class="section-header">
+        <span class="material-symbols-outlined section-icon">system_update</span>
+        <div>
+          <h3>版本与更新</h3>
+          <p class="section-desc">当前版本 {{ updateInfo.currentVersion || '...' }}。二进制运行时可检查 GitHub Release 并自动下载替换程序（不会覆盖 data.db）。</p>
+        </div>
+      </div>
+      <p class="preset-hint">{{ updateStatusText }}</p>
+      <div class="section-footer">
+        <md-outlined-button @click="checkUpdates" :disabled="updateBusy">
+          {{ updateBusy ? '请稍候...' : '检查更新' }}
+        </md-outlined-button>
+        <md-filled-button v-if="updateInfo.updateAvailable" @click="applyUpdates" :disabled="updateBusy">
+          立即更新到 {{ updateInfo.latestVersion }}
+        </md-filled-button>
+      </div>
     </section>
 
     <!-- Save Config Action -->
@@ -624,6 +643,58 @@ const removePreset = async (id: string) => {
 };
 
 const apiAccessKey = ref('');
+const updateBusy = ref(false);
+const updateInfo = ref({
+  currentVersion: '',
+  latestVersion: '',
+  updateAvailable: false,
+  releaseUrl: '',
+  assetName: '',
+  notes: '',
+  packaged: false,
+});
+const updateStatusText = ref('尚未检查更新');
+
+const checkUpdates = async (quiet = false) => {
+  updateBusy.value = true;
+  try {
+    const res = await api.get('/updates');
+    updateInfo.value = res.data.data || updateInfo.value;
+    if (updateInfo.value.updateAvailable) {
+      updateStatusText.value = `发现新版本 ${updateInfo.value.latestVersion}（当前 ${updateInfo.value.currentVersion}）`;
+      if (!quiet) showSnackbar(updateStatusText.value, 'info');
+    } else {
+      updateStatusText.value = `已是最新版本 ${updateInfo.value.currentVersion || ''}`;
+      if (!quiet) showSnackbar(updateStatusText.value, 'success');
+    }
+  } catch (err: any) {
+    updateStatusText.value = apiError(err) || '检查更新失败';
+    if (!quiet) showSnackbar(updateStatusText.value, 'error');
+  } finally {
+    updateBusy.value = false;
+  }
+};
+
+const applyUpdates = async () => {
+  const ok = await confirmDialog({
+    title: '更新程序',
+    message: `将下载 ${updateInfo.value.assetName || '最新安装包'} 并替换当前程序，数据库和图片不会被覆盖。完成后请重启 NewsCatcher。`,
+    confirmLabel: '立即更新',
+  });
+  if (!ok) return;
+  updateBusy.value = true;
+  try {
+    const res = await api.post('/updates/apply');
+    const version = res.data.data?.version || updateInfo.value.latestVersion;
+    showSnackbar(`已更新到 ${version}，请重启程序`, 'success', 8000);
+    updateStatusText.value = `已更新到 ${version}，请重启程序`;
+    updateInfo.value.updateAvailable = false;
+  } catch (err: any) {
+    showSnackbar(apiError(err) || '更新失败', 'error');
+  } finally {
+    updateBusy.value = false;
+  }
+};
 
 const fetchConfig = async () => {
   try {
@@ -875,6 +946,7 @@ const rotateApiKey = async () => {
 onMounted(() => {
   fetchConfig();
   fetchPromptPresets();
+  checkUpdates(true);
 });
 </script>
 

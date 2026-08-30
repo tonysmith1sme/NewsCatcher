@@ -16,6 +16,8 @@ import { loadSettings, maskSettings, patchSettings } from '../services/settings'
 import { generateApiKey, getStoredApiKey, persistApiKey } from '../http/auth';
 import { HttpError } from '../http/errors';
 import { asyncHandler } from '../http/asyncHandler';
+import { applyUpdate, checkForUpdate } from '../services/updater';
+import { APP_VERSION } from '../version';
 
 const router = Router();
 
@@ -26,8 +28,18 @@ function parsePage(req: { query: any }, defaultSize = 12) {
 }
 
 router.get('/health', (_req, res) => {
-  res.json({ data: { status: 'ok' } });
+  res.json({ data: { status: 'ok', version: APP_VERSION } });
 });
+
+router.get('/updates', asyncHandler(async (_req, res) => {
+  const data = await checkForUpdate();
+  res.json({ data });
+}));
+
+router.post('/updates/apply', asyncHandler(async (_req, res) => {
+  const data = await applyUpdate();
+  res.json({ data });
+}));
 
 router.post('/setup', asyncHandler(async (_req, res) => {
   const existing = await getStoredApiKey();

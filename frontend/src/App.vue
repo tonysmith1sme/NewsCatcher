@@ -75,7 +75,19 @@ const apiKeyInput = ref('');
 
 onMounted(async () => {
   const ok = await ensureApiKey();
-  if (!ok) showKeyDialog.value = true;
+  if (!ok) {
+    showKeyDialog.value = true;
+    return;
+  }
+  try {
+    const res = await api.get('/updates');
+    const info = res.data.data;
+    if (info?.updateAvailable) {
+      showSnackbar(`发现新版本 ${info.latestVersion}，可在系统设置 → 存储中更新`, 'info', 8000);
+    }
+  } catch {
+    // ignore startup update check failures
+  }
 });
 
 const saveApiKeyInput = () => {

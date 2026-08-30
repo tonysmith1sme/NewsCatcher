@@ -53,7 +53,9 @@ Authorization: Bearer <API_KEY>
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/api/v1/health` | 健康检查 |
+| GET | `/api/v1/health` | 健康检查（含 `version`） |
+| GET | `/api/v1/updates` | 检查 GitHub Release 是否有新版本 |
+| POST | `/api/v1/updates/apply` | 下载对应平台压缩包并替换当前二进制（不覆盖 data.db） |
 | POST | `/api/v1/setup` | 首次生成 API Key |
 | GET | `/api/v1/settings?reveal=1` | 读取分组配置；`reveal=1` 返回明文密钥 |
 | PATCH | `/api/v1/settings` | 部分更新配置 |

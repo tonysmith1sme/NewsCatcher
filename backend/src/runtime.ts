@@ -92,6 +92,12 @@ export function prepareRuntime(): void {
   ensureDatabase();
   extractPrismaEngine();
   process.env.DATABASE_URL = `file:${getDbPath()}`;
+  if (isPackaged()) {
+    const backup = `${process.execPath}.bak`;
+    if (fs.existsSync(backup)) {
+      try { fs.unlinkSync(backup); } catch { /* ignore */ }
+    }
+  }
 }
 
 export function getListenPort(): number {
